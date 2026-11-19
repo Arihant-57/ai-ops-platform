@@ -853,6 +853,93 @@
 
     /* Scrollable table wrapper */
     .table-wrap { overflow-x: auto; }
+
+    /* Segmented topbar toggles (Scope & Currency) */
+    .seg-group {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .seg-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.12s;
+    }
+    .seg-btn:hover { color: var(--text); }
+    .seg-btn.active {
+      background: var(--card-bg);
+      color: var(--accent);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+
+    /* Team folder accordion */
+    .team-folder {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      overflow: hidden;
+      background: var(--card-bg);
+    }
+    .team-folder-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg);
+      cursor: pointer;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .team-folder-head:hover { background: #eef0f4; }
+    .team-folder-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .team-folder-stats {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .team-folder-body { border-top: 1px solid var(--border-light); }
+
+    /* Cost formula callout */
+    .formula-box {
+      background: var(--accent-bg);
+      border: 1px solid #d5d7f5;
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
+    .formula-box code {
+      background: #fff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid #d5d7f5;
+      font-size: 12px;
+      color: var(--accent);
+    }
+    .sub-muted { font-size: 11px; color: var(--text-muted); font-weight: 400; }
   </style>
 </head>
 <body>
@@ -878,6 +965,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       Agents
     </a>
+    <a class="sidebar-link" data-page="teams" onclick="navigateTo('teams')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      Teams & Members
+    </a>
     <a class="sidebar-link" data-page="models" onclick="navigateTo('models')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
       Models
@@ -885,6 +976,10 @@
     <a class="sidebar-link" data-page="playground" onclick="navigateTo('playground')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
       Playground
+    </a>
+    <a class="sidebar-link" data-page="create-agent" onclick="navigateTo('create-agent')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      Create Agent
     </a>
 
     <div class="sidebar-section-label" style="margin-top:8px">Monitor</div>
@@ -927,6 +1022,15 @@
       <input type="text" placeholder="Search agents, models…" id="global-search" onkeyup="handleGlobalSearch(event)" />
     </div>
     <div class="topbar-right">
+      <div class="seg-group" id="scope-selector" title="Filter platform metrics by traffic environment">
+        <button class="seg-btn active" data-scope="production" onclick="setScope('production')">Production</button>
+        <button class="seg-btn" data-scope="all" onclick="setScope('all')">All</button>
+        <button class="seg-btn" data-scope="loadtest" onclick="setScope('loadtest')">Load Tests</button>
+      </div>
+      <div class="seg-group" id="currency-selector" title="Display cost in INR (₹85/$1) or USD ($)">
+        <button class="seg-btn active" data-curr="INR" onclick="setCurrency('INR')">₹ INR</button>
+        <button class="seg-btn" data-curr="USD" onclick="setCurrency('USD')">$ USD</button>
+      </div>
       <div class="env-badge" id="system-health-badge">
         <div class="dot"></div>
         All Systems Operational
@@ -945,7 +1049,7 @@
     <div class="page active" id="page-overview">
       <div class="page-header">
         <h1>AI Ops Control Plane</h1>
-        <p>Manage, execute and monitor your AI agent fleet.</p>
+        <p id="ov-scope-subtitle">Manage, execute and monitor your AI agent fleet — showing Production traffic (switch Scope above for Load Tests).</p>
       </div>
 
       <div class="metrics-row" id="overview-metrics">
@@ -965,13 +1069,13 @@
           <div class="metric-icon purple" style="float:right">🔤</div>
           <div class="metric-label">Total Tokens</div>
           <div class="metric-value" id="ov-tokens">—</div>
-          <div class="metric-sub">across all agents</div>
+          <div class="metric-sub" id="ov-tokens-split">In: — · Out: —</div>
         </div>
         <div class="metric-card">
           <div class="metric-icon orange" style="float:right">💰</div>
           <div class="metric-label">Estimated Cost</div>
           <div class="metric-value" id="ov-cost">—</div>
-          <div class="metric-sub">USD, illustrative</div>
+          <div class="metric-sub" id="ov-cost-sub">INR (₹85 = $1)</div>
         </div>
         <div class="metric-card">
           <div class="metric-icon red" style="float:right">⚠️</div>
@@ -987,14 +1091,41 @@
         </div>
       </div>
 
+      <!-- Team Allocation Summary -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Team Allocations & Spend</h3>
+          <span class="sub-muted" id="ov-team-hint">Grouped by owner_team (click a team to filter Agents)</span>
+        </div>
+        <div class="card-body no-pad">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th>Agents</th>
+                  <th>Models Used</th>
+                  <th>Requests</th>
+                  <th>Tokens (In / Out)</th>
+                  <th>Estimated Cost</th>
+                </tr>
+              </thead>
+              <tbody id="ov-teams-tbody">
+                <tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:20px">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- Agent Fleet Table -->
       <div class="card">
         <div class="card-header">
           <h3>Agent Fleet</h3>
           <div style="display:flex;gap:8px">
-            <select class="filter-select" id="ov-env-filter" onchange="renderOverviewAgents()">
-              <option value="all">All Agents</option>
+            <select class="filter-select" id="ov-env-filter" onchange="setScope(this.value)">
               <option value="production">Production</option>
+              <option value="all">All Agents</option>
               <option value="loadtest">Load Testing</option>
             </select>
             <button class="btn btn-primary btn-sm" onclick="navigateTo('create-agent')">+ Create Agent</button>
@@ -1025,7 +1156,7 @@
       <!-- Charts -->
       <div class="grid-2">
         <div class="card">
-          <div class="card-header"><h3>Cost by Model (USD)</h3></div>
+          <div class="card-header"><h3 id="ov-chart-cost-title">Cost by Model (INR)</h3></div>
           <div class="card-body"><div class="chart-container"><canvas id="ov-chart-cost"></canvas></div></div>
         </div>
         <div class="card">
@@ -1070,6 +1201,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--text-muted)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input type="text" placeholder="Search agents…" id="agent-search" onkeyup="filterAgentTable()" />
         </div>
+        <select class="filter-select" id="agent-team-filter" onchange="filterAgentTable()">
+          <option value="all">All Teams</option>
+        </select>
         <select class="filter-select" id="agent-status-filter" onchange="filterAgentTable()">
           <option value="all">All Status</option>
           <option value="ACTIVE">Active</option>
@@ -1083,12 +1217,16 @@
           <option value="production">Production</option>
           <option value="loadtest">Load Testing</option>
         </select>
+        <div class="seg-group" id="agent-view-toggle">
+          <button class="seg-btn active" data-view="table" onclick="setAgentViewMode('table')">Table</button>
+          <button class="seg-btn" data-view="folders" onclick="setAgentViewMode('folders')">Team Folders</button>
+        </div>
         <div class="toolbar-right">
           <button class="btn btn-primary" onclick="navigateTo('create-agent')">+ Create Agent</button>
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="agents-table-card">
         <div class="card-body no-pad">
           <div class="table-wrap">
             <table class="data-table">
@@ -1111,6 +1249,7 @@
           </div>
         </div>
       </div>
+      <div id="agents-folders-wrap" style="display:none"></div>
     </div>
 
 
@@ -1188,7 +1327,7 @@
                 <tr>
                   <th>Request ID</th>
                   <th>Tokens</th>
-                  <th>Cost (USD)</th>
+                  <th>Estimated Cost</th>
                   <th>Source</th>
                   <th>Timestamp</th>
                 </tr>
@@ -1204,16 +1343,71 @@
 
 
     <!-- ═══════════════════════════════════════════════════════
+         PAGE: TEAMS & MEMBERS
+         ═══════════════════════════════════════════════════════ -->
+    <div class="page" id="page-teams">
+      <div class="page-header">
+        <h1>Teams & Members</h1>
+        <p>Manage departments, team members, member roles, daily team budgets, and attributed AI spend.</p>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metric-card">
+          <div class="metric-label">Total Teams</div>
+          <div class="metric-value" id="tm-count">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Total Members</div>
+          <div class="metric-value" id="tm-members-count">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Combined Team Budget</div>
+          <div class="metric-value" id="tm-budget-total">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Attributed Spend</div>
+          <div class="metric-value" id="tm-spend-total">—</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><h3>+ Create New Team</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Team Name *</label>
+              <input type="text" id="new-team-name" placeholder="e.g. Product, Security" />
+            </div>
+            <div class="form-group">
+              <label>Daily Token Budget</label>
+              <input type="number" id="new-team-budget" value="250000" min="1000" />
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-end">
+            <div class="form-group" style="flex:1;margin-bottom:0">
+              <label>Description</label>
+              <input type="text" id="new-team-desc" placeholder="Department purpose or cost center" />
+            </div>
+            <button class="btn btn-primary" onclick="createNewTeam()">+ Create Team</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="teams-directory"></div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════════════════
          PAGE: CREATE / EDIT AGENT
          ═══════════════════════════════════════════════════════ -->
     <div class="page" id="page-create-agent">
       <a class="back-link" onclick="navigateTo('agents')">← Back to Agents</a>
       <div class="page-header">
         <h1 id="form-title">Create Agent</h1>
-        <p id="form-subtitle">Add a new agent to the fleet.</p>
+        <p id="form-subtitle">Add a new agent to the fleet with explicit model, team, and budget policy.</p>
       </div>
 
-      <div class="card" style="max-width:640px">
+      <div class="card" style="max-width:680px">
         <div class="card-body">
           <input type="hidden" id="form-agent-id" value="" />
           <div class="form-group">
@@ -1226,18 +1420,20 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Model *</label>
+              <label>Model * <span class="sub-muted">(with pricing)</span></label>
               <select id="form-model">
-                <option value="gpt-4o-mini">gpt-4o-mini</option>
-                <option value="claude-haiku">claude-haiku</option>
-                <option value="gemini-flash">gemini-flash</option>
-                <option value="llama3.1:8b">llama3.1:8b</option>
-                <option value="qwen3.5:4b">qwen3.5:4b</option>
+                <option value="gpt-4o-mini">gpt-4o-mini (OpenAI · Cloud)</option>
+                <option value="claude-haiku">claude-haiku (Anthropic · Cloud)</option>
+                <option value="gemini-flash">gemini-flash (Google · Cloud)</option>
+                <option value="llama3.1:8b">llama3.1:8b (Ollama · Local Free)</option>
+                <option value="qwen3.5:4b">qwen3.5:4b (Ollama · Local Free)</option>
               </select>
             </div>
             <div class="form-group">
-              <label>Team</label>
-              <input type="text" id="form-team" placeholder="e.g. engineering" value="default" />
+              <label>Team * <a href="#" onclick="navigateTo('teams');return false;" style="font-size:11px;color:var(--accent);float:right">+ Manage Teams</a></label>
+              <select id="form-team">
+                <option value="default">default</option>
+              </select>
             </div>
           </div>
           <div class="form-row">
@@ -1246,12 +1442,19 @@
               <input type="number" id="form-budget" value="100000" min="1000" />
             </div>
             <div class="form-group">
-              <label>Status</label>
-              <select id="form-status">
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
+              <label>Budget Enforcement Mode</label>
+              <select id="form-budget-mode">
+                <option value="soft">Soft (Alert at 80%/100%, allow execution)</option>
+                <option value="hard">Hard (Block execution at 100% with HTTP 429)</option>
               </select>
             </div>
+          </div>
+          <div class="form-group" style="max-width:50%">
+            <label>Status</label>
+            <select id="form-status">
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
           </div>
           <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
             <button class="btn btn-secondary" onclick="navigateTo('agents')">Cancel</button>
@@ -1268,34 +1471,50 @@
     <div class="page" id="page-playground">
       <div class="page-header">
         <h1>Agent Playground</h1>
-        <p>Execute agents and inspect results in real time.</p>
+        <p>Select an agent, switch its model if needed, pick the executing team member, and inspect live execution traces.</p>
       </div>
 
       <div class="playground-grid">
         <!-- Left: Controls -->
         <div>
           <div class="card">
-            <div class="card-header"><h3>Configuration</h3></div>
+            <div class="card-header">
+              <h3>Configuration</h3>
+              <button class="btn btn-secondary btn-sm" onclick="navigateTo('create-agent')">+ Create Agent</button>
+            </div>
             <div class="card-body">
               <div class="form-group">
-                <label>Agent</label>
+                <label>Agent (shows Agent — Model · Team)</label>
                 <select id="pg-agent-select" onchange="updatePlaygroundAgent()">
                   <option value="">Select an agent…</option>
                 </select>
               </div>
-              <div style="display:flex;gap:16px;margin-bottom:16px">
-                <div style="flex:1">
-                  <div style="font-size:12px;color:var(--text-muted);margin-bottom:2px">Model</div>
-                  <div style="font-size:14px;font-weight:600" id="pg-model">—</div>
+              <div class="form-group">
+                <label>Assigned Model <span class="sub-muted" id="pg-model-meta"></span></label>
+                <div style="display:flex;gap:8px">
+                  <select id="pg-model-select" style="flex:1"></select>
+                  <button class="btn btn-secondary btn-sm" onclick="switchPlaygroundAgentModel()" title="Save new model to this agent">Apply Model</button>
                 </div>
-                <div style="flex:1">
-                  <div style="font-size:12px;color:var(--text-muted);margin-bottom:2px">Status</div>
-                  <div id="pg-status">—</div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Executed By (Team Member)</label>
+                  <select id="pg-member-select">
+                    <option value="">Anonymous / API</option>
+                  </select>
                 </div>
+                <div class="form-group">
+                  <label>Team & Budget Policy</label>
+                  <div style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:12px" id="pg-team-policy">—</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:16px;margin-bottom:12px">
+                <div><span style="font-size:11px;color:var(--text-muted)">Model: </span><strong id="pg-model">—</strong></div>
+                <div><span style="font-size:11px;color:var(--text-muted)">Status: </span><span id="pg-status">—</span></div>
               </div>
               <div class="form-group">
                 <label>Task / Prompt</label>
-                <textarea id="pg-prompt" rows="5" placeholder="Enter your task prompt…">Analyze the current service usage and provide a short operational summary.</textarea>
+                <textarea id="pg-prompt" rows="4" placeholder="Enter your task prompt…">Analyze the current service usage and provide a short operational summary.</textarea>
               </div>
               <button class="btn btn-primary" id="pg-run-btn" onclick="runPlayground()" style="width:100%">
                 ▶ Run Agent
@@ -1322,7 +1541,7 @@
             </div>
             <div class="card-body">
               <div id="pg-result-display">
-                <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;font-weight:600">Response</div>
+                <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;font-weight:600">Response & Trace Summary</div>
                 <div class="execution-result" id="pg-result-text"></div>
               </div>
 
@@ -1343,9 +1562,27 @@
             <div class="card-body">
               <div class="empty-state">
                 <div style="font-size:40px;margin-bottom:12px">▶</div>
-                <p>Select an agent and run a task to see results here.</p>
+                <p>Select an agent and run a task to see response preview, tokens, latency, and cost breakdown.</p>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fleet Model Quick-Reference -->
+      <div class="card" style="margin-top:20px">
+        <div class="card-header">
+          <h3>Active Agents → Model Assignment Reference</h3>
+          <span class="sub-muted">Click any row to load into Playground</span>
+        </div>
+        <div class="card-body no-pad">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr><th>Agent</th><th>Team</th><th>Assigned Model</th><th>Budget Mode</th><th>Status</th><th>Action</th></tr>
+              </thead>
+              <tbody id="pg-fleet-map-tbody"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1358,7 +1595,7 @@
     <div class="page" id="page-models">
       <div class="page-header">
         <h1>Model Catalog</h1>
-        <p>Available models, pricing and usage across agents.</p>
+        <p>Underlying LLMs, per-million token rates, and which team agents call each model.</p>
       </div>
 
       <div class="card">
@@ -1370,15 +1607,16 @@
                   <th>Model</th>
                   <th>Provider</th>
                   <th>Type</th>
-                  <th>Input Price / 1K tokens</th>
-                  <th>Output Price / 1K tokens</th>
-                  <th>Agents Using</th>
-                  <th>Total Requests</th>
-                  <th>Total Cost (USD)</th>
+                  <th id="models-in-hdr">Input / 1M Tokens</th>
+                  <th id="models-out-hdr">Output / 1M Tokens</th>
+                  <th>Agents & Teams Using</th>
+                  <th>Tokens (In / Out)</th>
+                  <th>Requests</th>
+                  <th id="models-cost-hdr">Total Cost</th>
                 </tr>
               </thead>
               <tbody id="models-tbody">
-                <tr><td colspan="8" style="color:var(--text-muted);text-align:center;padding:30px">Loading…</td></tr>
+                <tr><td colspan="9" style="color:var(--text-muted);text-align:center;padding:30px">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -1393,7 +1631,7 @@
     <div class="page" id="page-observability">
       <div class="page-header">
         <h1>Observability</h1>
-        <p>Monitor request volume, token consumption, latency and execution status.</p>
+        <p>Monitor request volume, model attribution, token consumption, latency and status.</p>
       </div>
 
       <div class="metrics-row" id="obs-metrics">
@@ -1404,6 +1642,7 @@
         <div class="metric-card">
           <div class="metric-label">Total Tokens</div>
           <div class="metric-value" id="obs-tokens">—</div>
+          <div class="metric-sub" id="obs-tokens-split">In: — · Out: —</div>
         </div>
         <div class="metric-card">
           <div class="metric-label">Successful</div>
@@ -1425,10 +1664,12 @@
           <h3>Recent Executions</h3>
           <div style="display:flex;gap:8px">
             <select class="filter-select" id="obs-source-filter" onchange="loadObservability()">
-              <option value="">All Sources</option>
-              <option value="demo">Demo</option>
-              <option value="seed">Seed</option>
-              <option value="loadtest">Load Test</option>
+              <option value="">Follow Top Scope</option>
+              <option value="all">All Sources</option>
+              <option value="production">Production (Demo + Seed)</option>
+              <option value="demo">Demo Only</option>
+              <option value="seed">Seed Only</option>
+              <option value="loadtest">Load Test Only</option>
             </select>
           </div>
         </div>
@@ -1438,9 +1679,11 @@
               <thead>
                 <tr>
                   <th>Request ID</th>
-                  <th>Agent</th>
-                  <th>Input Tokens</th>
-                  <th>Output Tokens</th>
+                  <th>Agent (Team)</th>
+                  <th>Model</th>
+                  <th>Executed By</th>
+                  <th>Input</th>
+                  <th>Output</th>
                   <th>Total</th>
                   <th>Latency</th>
                   <th>Status</th>
@@ -1449,7 +1692,7 @@
                 </tr>
               </thead>
               <tbody id="obs-tbody">
-                <tr><td colspan="9" style="color:var(--text-muted);text-align:center;padding:30px">Loading…</td></tr>
+                <tr><td colspan="11" style="color:var(--text-muted);text-align:center;padding:30px">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -1464,17 +1707,27 @@
     <div class="page" id="page-costs">
       <div class="page-header">
         <h1>AI Cost Management</h1>
-        <p>Track spending, model pricing and budget utilization across your agent fleet.</p>
+        <p id="cost-scope-sub">Track team spend, model pricing, million-token usage and budget utilization.</p>
+      </div>
+
+      <div class="formula-box">
+        <div>
+          <strong>How Cost Is Calculated:</strong>
+          <code>Cost = (Input Tokens ÷ 1,000 × Input Rate) + (Output Tokens ÷ 1,000 × Output Rate)</code>
+        </div>
+        <span class="sub-muted" id="cost-formula-live">Exchange Rate: $1 USD = ₹85.00 INR (illustrative)</span>
       </div>
 
       <div class="metrics-row">
         <div class="metric-card">
           <div class="metric-label">Total Cost</div>
           <div class="metric-value" id="cost-total">—</div>
+          <div class="metric-sub" id="cost-total-sub">—</div>
         </div>
         <div class="metric-card">
           <div class="metric-label">Avg Cost / Request</div>
           <div class="metric-value" id="cost-avg">—</div>
+          <div class="metric-sub" id="cost-tokens-sub">Tokens: —</div>
         </div>
         <div class="metric-card">
           <div class="metric-label">Total Requests</div>
@@ -1483,29 +1736,41 @@
         <div class="metric-card">
           <div class="metric-label">Highest Cost Agent</div>
           <div class="metric-value" id="cost-highest-agent" style="font-size:16px">—</div>
+          <div class="metric-sub" id="cost-highest-team">—</div>
+        </div>
+      </div>
+
+      <!-- Team Cost Subfolders -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Team Cost Breakdown (Click folder to expand agents & models)</h3>
+          <span class="sub-muted">Attributed via Agent → Owner Team</span>
+        </div>
+        <div class="card-body" id="cost-team-folders">
+          <div style="color:var(--text-muted);text-align:center;padding:20px">Loading…</div>
         </div>
       </div>
 
       <!-- Charts -->
       <div class="grid-2" style="margin-bottom:20px">
         <div class="card">
-          <div class="card-header"><h3>Cost by Agent (USD)</h3></div>
+          <div class="card-header"><h3 id="cost-chart-agent-title">Cost by Agent (INR)</h3></div>
           <div class="card-body"><div class="chart-container"><canvas id="cost-agent-chart"></canvas></div></div>
         </div>
         <div class="card">
-          <div class="card-header"><h3>Cost by Model (USD)</h3></div>
+          <div class="card-header"><h3 id="cost-chart-model-title">Cost by Model (INR)</h3></div>
           <div class="card-body"><div class="chart-container"><canvas id="cost-model-chart"></canvas></div></div>
         </div>
       </div>
 
       <!-- Model Pricing -->
       <div class="card" style="margin-bottom:20px">
-        <div class="card-header"><h3>Model Pricing</h3></div>
+        <div class="card-header"><h3>Model Pricing (Per 1K & Per 1M Tokens)</h3></div>
         <div class="card-body no-pad">
           <div class="table-wrap">
             <table class="data-table">
               <thead>
-                <tr><th>Model</th><th>Input Price / 1K tokens</th><th>Output Price / 1K tokens</th><th>Currency</th></tr>
+                <tr><th>Model</th><th>Input / 1K (USD)</th><th>Output / 1K (USD)</th><th>Input / 1M</th><th>Output / 1M</th></tr>
               </thead>
               <tbody id="cost-pricing-tbody"></tbody>
             </table>
@@ -1520,7 +1785,7 @@
           <div class="table-wrap">
             <table class="data-table">
               <thead>
-                <tr><th>Agent</th><th>Daily Budget</th><th>Tokens Today</th><th>Usage %</th><th>Remaining</th><th>Status</th></tr>
+                <tr><th>Agent (Team)</th><th>Model</th><th>Daily Budget</th><th>Tokens Today</th><th>Usage %</th><th>Remaining</th><th>Status</th></tr>
               </thead>
               <tbody id="cost-budget-tbody"></tbody>
             </table>
@@ -1621,35 +1886,35 @@
         </div>
       </div>
 
-      <!-- Docker & Architecture -->
+      <!-- Kubernetes / Docker & Architecture -->
       <div class="grid-2">
         <div class="card">
-          <div class="card-header"><h3>Docker Environment</h3></div>
+          <div class="card-header"><h3>Cluster & Runtime Environment</h3></div>
           <div class="card-body">
             <div class="detail-meta">
               <div class="detail-meta-item">
-                <div class="label">Containers</div>
-                <div class="value">4</div>
-              </div>
-              <div class="detail-meta-item">
-                <div class="label">Network</div>
-                <div class="value">ai-ops-net</div>
-              </div>
-              <div class="detail-meta-item">
                 <div class="label">Orchestration</div>
-                <div class="value">Docker Compose</div>
+                <div class="value">Kubernetes (KIND)</div>
+              </div>
+              <div class="detail-meta-item">
+                <div class="label">Nodes</div>
+                <div class="value">1 Control + 2 Workers</div>
+              </div>
+              <div class="detail-meta-item">
+                <div class="label">HPA Autoscaling</div>
+                <div class="value">1–5 / 1–5 / 1–4 @ 50% CPU</div>
               </div>
               <div class="detail-meta-item">
                 <div class="label">Architecture</div>
-                <div class="value">Microservices (3)</div>
+                <div class="value">3 Services + 1 DB</div>
               </div>
             </div>
             <div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:var(--radius);font-size:12px;color:var(--text-secondary)">
-              <div style="margin-bottom:4px;font-weight:600;color:var(--text)">Port Mappings</div>
-              <div>localhost:8001 → agent-service:8000</div>
-              <div>localhost:8002 → usage-service:8000</div>
-              <div>localhost:8003 → cost-service:8000</div>
-              <div>localhost:5432 → postgres:5432</div>
+              <div style="margin-bottom:4px;font-weight:600;color:var(--text)">Service & NodePort Mappings</div>
+              <div>localhost:8001 (NodePort 30081) → agent-service:8000</div>
+              <div>localhost:8002 (NodePort 30082) → usage-service:8000</div>
+              <div>localhost:8003 (NodePort 30083) → cost-service:8000</div>
+              <div>ClusterIP postgres-db:5432 → PostgreSQL 16 (1 replica, PVC)</div>
             </div>
           </div>
         </div>
@@ -1686,15 +1951,78 @@
 // ── Global state ─────────────────────────────────────────────
 let STATE = {
   agents: [],
+  teams: [],
+  modelsCatalog: [],
+  pricingCatalog: [],
   agentAnalytics: {},
   overview: null,
   currentAgentId: null,
+  scope: 'production',
+  currency: 'INR',
+  agentViewMode: 'table',
   charts: {}
 };
 
+const USD_TO_INR = 85.0;
 const AGENT_API = '';
 const USAGE_API = 'http://localhost:8002';
 const COST_API = 'http://localhost:8003';
+
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function setScope(scope) {
+  STATE.scope = scope;
+  document.querySelectorAll('#scope-selector .seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.scope === scope);
+  });
+  const ovEnv = document.getElementById('ov-env-filter');
+  if (ovEnv) ovEnv.value = scope;
+  const agEnv = document.getElementById('agent-env-filter');
+  if (agEnv) agEnv.value = scope;
+  refreshCurrentPage();
+}
+
+function setCurrency(curr) {
+  STATE.currency = curr;
+  document.querySelectorAll('#currency-selector .seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.curr === curr);
+  });
+  refreshCurrentPage();
+}
+
+function setAgentViewMode(mode) {
+  STATE.agentViewMode = mode;
+  document.querySelectorAll('#agent-view-toggle .seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === mode);
+  });
+  filterAgentTable();
+}
+
+function openTeamAgents(team) {
+  navigateTo('agents');
+  setTimeout(() => {
+    const tf = document.getElementById('agent-team-filter');
+    if (tf) tf.value = team;
+    filterAgentTable();
+  }, 150);
+}
+
+function scopeQuery() {
+  return STATE.scope === 'all' ? '' : `source=${STATE.scope}`;
+}
+
+function filterAgentsByScope(agents, scope) {
+  if (scope === 'production') return agents.filter(a => !isLoadTest(a.name));
+  if (scope === 'loadtest') return agents.filter(a => isLoadTest(a.name));
+  return agents;
+}
+
+function currSymbol() { return STATE.currency === 'INR' ? '₹' : '$'; }
+function convertCost(usd) { return parseFloat(usd || 0) * (STATE.currency === 'INR' ? USD_TO_INR : 1); }
 
 // ── Navigation ───────────────────────────────────────────────
 function navigateTo(page, params) {
@@ -1716,6 +2044,7 @@ function navigateTo(page, params) {
   switch (page) {
     case 'overview': loadOverview(); break;
     case 'agents': loadAgents(); break;
+    case 'teams': loadTeams(); break;
     case 'agent-detail': loadAgentDetail(params); break;
     case 'create-agent': setupAgentForm(params); break;
     case 'playground': loadPlayground(params); break;
@@ -1747,16 +2076,60 @@ async function fetchJSON(url) {
 }
 
 function fmt(n) {
+  n = Number(n || 0);
   if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
   if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
   return n.toString();
 }
 
 function fmtCost(v) {
+  const n = convertCost(v);
+  const sym = currSymbol();
+  if (n === 0) return sym + '0.00';
+  if (n >= 100) return sym + n.toFixed(2);
+  if (n >= 1) return sym + n.toFixed(2);
+  if (n >= 0.01) return sym + n.toFixed(4);
+  return sym + n.toFixed(6);
+}
+
+function fmtUsdRaw(v) {
   const n = parseFloat(v || 0);
   if (n >= 1) return '$' + n.toFixed(2);
   if (n >= 0.01) return '$' + n.toFixed(4);
   return '$' + n.toFixed(6);
+}
+
+function fmtRatePer1M(per1kUsd) {
+  const per1m = parseFloat(per1kUsd || 0) * 1000 * (STATE.currency === 'INR' ? USD_TO_INR : 1);
+  if (per1m === 0) return 'Free (Local)';
+  return currSymbol() + per1m.toFixed(2) + ' / 1M';
+}
+
+function buildTeamRollup(agents, analyticsList) {
+  const agentMap = {};
+  agents.forEach(a => { agentMap[a.id] = a; });
+  const aStatsMap = {};
+  (analyticsList || []).forEach(x => { aStatsMap[x.agent_id] = x; });
+
+  const scopedAgents = filterAgentsByScope(agents, STATE.scope);
+  const teams = {};
+  scopedAgents.forEach(a => {
+    const team = a.owner_team || 'default';
+    if (!teams[team]) {
+      teams[team] = { team, agents: [], models: new Set(), requests: 0, input_tokens: 0, output_tokens: 0, total_tokens: 0, tokens_today: 0, cost_usd: 0 };
+    }
+    const t = teams[team];
+    const st = aStatsMap[a.id] || {};
+    t.agents.push({ ...a, stats: st });
+    t.models.add(a.model);
+    t.requests += st.request_count || 0;
+    t.input_tokens += st.input_tokens || 0;
+    t.output_tokens += st.output_tokens || 0;
+    t.total_tokens += st.total_tokens || 0;
+    t.tokens_today += st.tokens_today || 0;
+    t.cost_usd += parseFloat(st.total_cost_usd || 0);
+  });
+  return Object.values(teams).sort((a, b) => b.cost_usd - a.cost_usd || b.total_tokens - a.total_tokens);
 }
 
 function fmtDate(d) {
@@ -1834,7 +2207,8 @@ function handleGlobalSearch(e) {
 // ═══════════════════════════════════════════════════════════
 async function loadOverview() {
   try {
-    const overview = await fetchJSON('/dashboard/overview');
+    const sq = scopeQuery();
+    const overview = await fetchJSON('/dashboard/overview' + (sq ? `?${sq}` : ''));
     STATE.overview = overview;
     STATE.agents = overview.agents || [];
 
@@ -1844,9 +2218,13 @@ async function loadOverview() {
       STATE.agentAnalytics[a.agent_id] = a;
     });
 
-    // Metrics
-    const totalAgents = overview.agents.length;
-    const activeAgents = overview.agents.filter(a => a.status === 'ACTIVE').length;
+    const scopeLabel = STATE.scope === 'production' ? 'Production Agents' : STATE.scope === 'loadtest' ? 'Load Testing' : 'All Traffic';
+    const subEl = document.getElementById('ov-scope-subtitle');
+    if (subEl) subEl.textContent = `Manage, execute and monitor your AI agent fleet — Scope: ${scopeLabel} · Currency: ${STATE.currency} (${currSymbol()})`;
+
+    const scopedAgents = filterAgentsByScope(overview.agents, STATE.scope);
+    const totalAgents = scopedAgents.length;
+    const activeAgents = scopedAgents.filter(a => a.status === 'ACTIVE').length;
     const totalReq = overview.total_requests || 0;
     const failed = overview.failed_model_calls || 0;
 
@@ -1856,10 +2234,15 @@ async function loadOverview() {
     document.getElementById('ov-success-fail').textContent =
       (totalReq - failed).toLocaleString() + ' success / ' + failed.toLocaleString() + ' failed';
     document.getElementById('ov-tokens').textContent = fmt(overview.total_tokens || 0);
+    document.getElementById('ov-tokens-split').textContent =
+      `In: ${fmt(overview.input_tokens || 0)} · Out: ${fmt(overview.output_tokens || 0)}`;
     document.getElementById('ov-cost').textContent = fmtCost(overview.total_cost_usd);
+    document.getElementById('ov-cost-sub').textContent =
+      STATE.currency === 'INR' ? `₹85/$1 · ≈ ${fmtUsdRaw(overview.total_cost_usd)} USD` : 'USD (illustrative)';
     document.getElementById('ov-failed').textContent = failed.toLocaleString();
     document.getElementById('ov-active-count').textContent = activeAgents;
 
+    renderOverviewTeams(overview);
     renderOverviewAgents();
     renderOverviewCharts(overview);
     renderOverviewAlerts(overview.recent_alerts || []);
@@ -1869,11 +2252,27 @@ async function loadOverview() {
   }
 }
 
+function renderOverviewTeams(overview) {
+  const tbody = document.getElementById('ov-teams-tbody');
+  if (!tbody) return;
+  const teams = buildTeamRollup(STATE.agents, overview.tokens_per_agent || []);
+  if (!teams.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:20px">No teams in current scope</td></tr>';
+    return;
+  }
+  tbody.innerHTML = teams.map(t => `<tr>
+    <td><span class="agent-name" data-team="${esc(t.team)}" onclick="openTeamAgents(this.dataset.team)">📁 ${esc(t.team)}</span></td>
+    <td>${t.agents.map(a => `<span style="font-size:12px">${esc(a.name)}</span>`).join(', ')}</td>
+    <td>${[...t.models].map(m => `<code style="font-size:11px;color:var(--accent);margin-right:4px">${esc(m)}</code>`).join('')}</td>
+    <td>${t.requests.toLocaleString()}</td>
+    <td><strong>${fmt(t.total_tokens)}</strong> <span class="sub-muted">(${fmt(t.input_tokens)} in / ${fmt(t.output_tokens)} out)</span></td>
+    <td style="font-weight:600">${fmtCost(t.cost_usd)}</td>
+  </tr>`).join('');
+}
+
 function renderOverviewAgents() {
-  const filter = document.getElementById('ov-env-filter').value;
-  let agents = STATE.agents;
-  if (filter === 'production') agents = agents.filter(a => !isLoadTest(a.name));
-  if (filter === 'loadtest') agents = agents.filter(a => isLoadTest(a.name));
+  const filter = STATE.scope;
+  let agents = filterAgentsByScope(STATE.agents, filter);
 
   const tbody = document.getElementById('ov-agents-tbody');
   if (!agents.length) {
@@ -1892,12 +2291,12 @@ function renderOverviewAgents() {
 
     return `<tr>
       <td>
-        <span class="agent-name" onclick="navigateTo('agent-detail',${a.id})">${a.name}</span>
+        <span class="agent-name" onclick="navigateTo('agent-detail',${Number(a.id)})">${esc(a.name)}</span>
         ${envBadge}
       </td>
       <td>${statusBadge(a.status)}</td>
-      <td><code style="font-size:12px;color:var(--accent)">${a.model}</code></td>
-      <td style="color:var(--text-secondary)">${a.owner_team}</td>
+      <td><code style="font-size:12px;color:var(--accent)">${esc(a.model)}</code></td>
+      <td style="color:var(--text-secondary)">${esc(a.owner_team)}</td>
       <td>
         <div class="budget-bar-container">
           <div class="budget-bar"><div class="budget-fill" style="width:${fillW}%;background:${fillColor}"></div></div>
@@ -1906,14 +2305,17 @@ function renderOverviewAgents() {
       </td>
       <td style="font-size:12px;color:var(--text-secondary)">${fmt(budget)} tokens</td>
       <td>
-        <button class="btn btn-primary btn-sm" onclick="navigateTo('agent-detail',${a.id})" style="margin-right:4px">Open</button>
-        <button class="btn btn-secondary btn-sm" onclick="openPlaygroundForAgentId(${a.id})" ${a.status !== 'ACTIVE' ? 'disabled' : ''}>▶ Run</button>
+        <button class="btn btn-primary btn-sm" onclick="navigateTo('agent-detail',${Number(a.id)})" style="margin-right:4px">Open</button>
+        <button class="btn btn-secondary btn-sm" onclick="openPlaygroundForAgentId(${Number(a.id)})" ${a.status !== 'ACTIVE' ? 'disabled' : ''}>▶ Run</button>
       </td>
     </tr>`;
   }).join('');
 }
 
 function renderOverviewCharts(overview) {
+  const titleEl = document.getElementById('ov-chart-cost-title');
+  if (titleEl) titleEl.textContent = `Cost by Model (${STATE.currency})`;
+
   // Cost by model
   const cpm = overview.cost_per_model || [];
   destroyChart('ovCost');
@@ -1922,14 +2324,15 @@ function renderOverviewCharts(overview) {
       type: 'bar',
       data: {
         labels: cpm.map(d => d.model),
-        datasets: [{ data: cpm.map(d => parseFloat(d.total_cost_usd || 0)), backgroundColor: PALETTE, borderRadius: 6, barThickness: 32 }]
+        datasets: [{ data: cpm.map(d => convertCost(d.total_cost_usd)), backgroundColor: PALETTE, borderRadius: 6, barThickness: 32 }]
       },
-      options: chartOpts('$')
+      options: chartOpts(currSymbol(), false)
     });
   }
 
-  // Tokens by agent
-  const tpa = (overview.tokens_per_agent || []).slice(0, 10);
+  // Tokens by agent (respect active scope)
+  const scopedIds = new Set(filterAgentsByScope(STATE.agents, STATE.scope).map(a => a.id));
+  const tpa = (overview.tokens_per_agent || []).filter(d => scopedIds.has(d.agent_id)).slice(0, 10);
   destroyChart('ovTokens');
   if (tpa.length) {
     STATE.charts.ovTokens = new Chart(document.getElementById('ov-chart-tokens'), {
@@ -1938,7 +2341,7 @@ function renderOverviewCharts(overview) {
         labels: tpa.map(d => d.agent_name),
         datasets: [{ data: tpa.map(d => d.total_tokens || 0), backgroundColor: PALETTE, borderRadius: 6, barThickness: 20 }]
       },
-      options: { ...chartOpts(), indexAxis: 'y' }
+      options: chartOpts('', true)
     });
   }
 }
@@ -1950,10 +2353,10 @@ function renderOverviewAlerts(alerts) {
     return;
   }
   tbody.innerHTML = alerts.slice(0, 8).map(a => `<tr>
-    <td><strong>${a.agent_name}</strong></td>
+    <td><strong>${esc(a.agent_name)}</strong></td>
     <td>${alertBadge(a.level)}</td>
     <td style="font-weight:600;color:${a.level === 'CRITICAL' ? 'var(--danger)' : 'var(--warning)'}">${parseFloat(a.budget_used_pct || 0).toFixed(1)}%</td>
-    <td style="color:var(--text-secondary);font-size:12px">${a.alert_date || ''}</td>
+    <td style="color:var(--text-secondary);font-size:12px">${esc(a.alert_date || '')}</td>
   </tr>`).join('');
 }
 
@@ -1967,16 +2370,24 @@ function updateAlertBadge(alerts) {
   }
 }
 
-function chartOpts(prefix) {
-  return {
+function chartOpts(prefix, horizontal) {
+  const fmtVal = v => prefix ? prefix + Number(v).toFixed(STATE.currency === 'INR' ? 2 : 4) : fmt(v);
+  const base = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
       x: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { color: '#f0f1f3' } },
-      y: { ticks: { color: '#9ca3af', font: { size: 11 }, callback: v => prefix ? prefix + v.toFixed(4) : fmt(v) }, grid: { color: '#f0f1f3' } }
+      y: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { color: '#f0f1f3' } }
     }
   };
+  if (horizontal) {
+    base.indexAxis = 'y';
+    base.scales.x.ticks.callback = fmtVal;
+  } else {
+    base.scales.y.ticks.callback = fmtVal;
+  }
+  return base;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1984,18 +2395,30 @@ function chartOpts(prefix) {
 // ═══════════════════════════════════════════════════════════
 async function loadAgents() {
   try {
+    const sq = scopeQuery();
     const [agents, overview] = await Promise.all([
       fetchJSON('/agents'),
-      fetchJSON('/dashboard/overview')
+      fetchJSON('/dashboard/overview' + (sq ? `?${sq}` : ''))
     ]);
     STATE.agents = agents;
     STATE.agentAnalytics = {};
     (overview.tokens_per_agent || []).forEach(a => { STATE.agentAnalytics[a.agent_id] = a; });
 
-    // Populate model filter
+    // Populate model & team filters
     const modelFilter = document.getElementById('agent-model-filter');
     const models = [...new Set(agents.map(a => a.model))];
-    modelFilter.innerHTML = '<option value="all">All Models</option>' + models.map(m => `<option value="${m}">${m}</option>`).join('');
+    modelFilter.innerHTML = '<option value="all">All Models</option>' + models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+
+    const teamFilter = document.getElementById('agent-team-filter');
+    if (teamFilter) {
+      const prevTeam = teamFilter.value || 'all';
+      const teams = [...new Set(agents.map(a => a.owner_team || 'default'))];
+      teamFilter.innerHTML = '<option value="all">All Teams</option>' + teams.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+      if (teams.includes(prevTeam)) teamFilter.value = prevTeam;
+    }
+
+    const envFilterEl = document.getElementById('agent-env-filter');
+    if (envFilterEl) envFilterEl.value = STATE.scope;
 
     filterAgentTable();
   } catch (e) {
@@ -2005,16 +2428,28 @@ async function loadAgents() {
 
 function filterAgentTable() {
   const search = (document.getElementById('agent-search').value || '').toLowerCase();
+  const teamFilter = (document.getElementById('agent-team-filter')?.value) || 'all';
   const statusFilter = document.getElementById('agent-status-filter').value;
   const modelFilter = document.getElementById('agent-model-filter').value;
   const envFilter = document.getElementById('agent-env-filter').value;
 
-  let agents = STATE.agents;
-  if (search) agents = agents.filter(a => a.name.toLowerCase().includes(search) || (a.description || '').toLowerCase().includes(search));
+  let agents = filterAgentsByScope(STATE.agents, envFilter);
+  if (search) agents = agents.filter(a => a.name.toLowerCase().includes(search) || (a.description || '').toLowerCase().includes(search) || (a.owner_team || '').toLowerCase().includes(search));
+  if (teamFilter !== 'all') agents = agents.filter(a => a.owner_team === teamFilter);
   if (statusFilter !== 'all') agents = agents.filter(a => a.status === statusFilter);
   if (modelFilter !== 'all') agents = agents.filter(a => a.model === modelFilter);
-  if (envFilter === 'production') agents = agents.filter(a => !isLoadTest(a.name));
-  if (envFilter === 'loadtest') agents = agents.filter(a => isLoadTest(a.name));
+
+  const tableCard = document.getElementById('agents-table-card');
+  const foldersWrap = document.getElementById('agents-folders-wrap');
+
+  if (STATE.agentViewMode === 'folders') {
+    tableCard.style.display = 'none';
+    foldersWrap.style.display = 'block';
+    renderAgentFolders(agents);
+    return;
+  }
+  tableCard.style.display = '';
+  foldersWrap.style.display = 'none';
 
   const tbody = document.getElementById('agents-tbody');
   if (!agents.length) {
@@ -2022,43 +2457,83 @@ function filterAgentTable() {
     return;
   }
 
-  tbody.innerHTML = agents.map(a => {
-    const analytics = STATE.agentAnalytics[a.id] || {};
-    const tokensToday = analytics.tokens_today || 0;
-    const budget = a.daily_token_budget || 1;
-    const pct = Math.min(9999, Math.round(tokensToday / budget * 100));
-    const fillW = Math.min(100, pct);
-    const fillColor = pct >= 100 ? 'var(--danger)' : pct >= 80 ? 'var(--warning)' : 'var(--success)';
+  tbody.innerHTML = agents.map(renderAgentRow).join('');
+}
 
-    return `<tr>
-      <td>
-        <span class="agent-name" onclick="navigateTo('agent-detail',${a.id})">${a.name}</span>
-        ${isLoadTest(a.name) ? '<span class="badge badge-loadtest" style="font-size:10px;padding:1px 6px;margin-left:4px">LT</span>' : ''}
-      </td>
-      <td style="color:var(--text-secondary);font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.description || '—'}</td>
-      <td><code style="font-size:12px;color:var(--accent)">${a.model}</code></td>
-      <td>${statusBadge(a.status)}</td>
-      <td style="color:var(--text-secondary);font-size:12px">${a.owner_team}</td>
-      <td style="font-size:12px;color:var(--text-secondary)">${fmt(budget)}</td>
-      <td>
-        <div class="budget-bar-container">
-          <div class="budget-bar"><div class="budget-fill" style="width:${fillW}%;background:${fillColor}"></div></div>
-          <span class="budget-pct">${pct}%</span>
+function renderAgentRow(a) {
+  const analytics = STATE.agentAnalytics[a.id] || {};
+  const tokensToday = analytics.tokens_today || 0;
+  const budget = a.daily_token_budget || 1;
+  const pct = Math.min(9999, Math.round(tokensToday / budget * 100));
+  const fillW = Math.min(100, pct);
+  const fillColor = pct >= 100 ? 'var(--danger)' : pct >= 80 ? 'var(--warning)' : 'var(--success)';
+
+  return `<tr>
+    <td>
+      <span class="agent-name" onclick="navigateTo('agent-detail',${Number(a.id)})">${esc(a.name)}</span>
+      ${isLoadTest(a.name) ? '<span class="badge badge-loadtest" style="font-size:10px;padding:1px 6px;margin-left:4px">LT</span>' : ''}
+    </td>
+    <td style="color:var(--text-secondary);font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.description || '—')}</td>
+    <td><code style="font-size:12px;color:var(--accent)">${esc(a.model)}</code></td>
+    <td>${statusBadge(a.status)}</td>
+    <td style="color:var(--text-secondary);font-size:12px">${esc(a.owner_team)}</td>
+    <td style="font-size:12px;color:var(--text-secondary)">${fmt(budget)}</td>
+    <td>
+      <div class="budget-bar-container">
+        <div class="budget-bar"><div class="budget-fill" style="width:${fillW}%;background:${fillColor}"></div></div>
+        <span class="budget-pct">${pct}%</span>
+      </div>
+    </td>
+    <td>
+      <div class="dropdown-wrap">
+        <button class="btn btn-secondary btn-sm" onclick="toggleDropdown(event)">Actions ▾</button>
+        <div class="dropdown-menu">
+          <button class="dropdown-item" onclick="navigateTo('agent-detail',${Number(a.id)})">Open</button>
+          <button class="dropdown-item" onclick="openPlaygroundForAgentId(${Number(a.id)})" ${a.status !== 'ACTIVE' ? 'disabled' : ''}>▶ Run</button>
+          <button class="dropdown-item" onclick="navigateTo('create-agent',${Number(a.id)})">Edit</button>
+          <button class="dropdown-item" data-id="${Number(a.id)}" data-status="${esc(a.status)}" onclick="toggleStatus(+this.dataset.id,this.dataset.status)">${a.status === 'ACTIVE' ? 'Disable' : 'Enable'}</button>
+          <button class="dropdown-item danger" data-id="${Number(a.id)}" data-name="${esc(a.name)}" onclick="deleteAgent(+this.dataset.id,this.dataset.name)">Delete</button>
         </div>
-      </td>
-      <td>
-        <div class="dropdown-wrap">
-          <button class="btn btn-secondary btn-sm" onclick="toggleDropdown(event)">Actions ▾</button>
-          <div class="dropdown-menu">
-            <button class="dropdown-item" onclick="navigateTo('agent-detail',${a.id})">Open</button>
-            <button class="dropdown-item" onclick="openPlaygroundForAgentId(${a.id})" ${a.status !== 'ACTIVE' ? 'disabled' : ''}>▶ Run</button>
-            <button class="dropdown-item" onclick="navigateTo('create-agent',${a.id})">Edit</button>
-            <button class="dropdown-item" onclick="toggleStatus(${a.id},'${a.status}')">${a.status === 'ACTIVE' ? 'Disable' : 'Enable'}</button>
-            <button class="dropdown-item danger" onclick="deleteAgent(${a.id},'${a.name.replace(/'/g, "\\'")}')">Delete</button>
-          </div>
+      </div>
+    </td>
+  </tr>`;
+}
+
+function renderAgentFolders(agents) {
+  const wrap = document.getElementById('agents-folders-wrap');
+  if (!agents.length) {
+    wrap.innerHTML = '<div class="card"><div class="card-body" style="color:var(--text-muted);text-align:center">No agents match filters</div></div>';
+    return;
+  }
+  const byTeam = {};
+  agents.forEach(a => {
+    const t = a.owner_team || 'default';
+    if (!byTeam[t]) byTeam[t] = [];
+    byTeam[t].push(a);
+  });
+  wrap.innerHTML = Object.entries(byTeam).map(([team, list]) => {
+    const models = [...new Set(list.map(a => a.model))];
+    const totalCost = list.reduce((s, a) => s + parseFloat((STATE.agentAnalytics[a.id] || {}).total_cost_usd || 0), 0);
+    const totalTok = list.reduce((s, a) => s + ((STATE.agentAnalytics[a.id] || {}).total_tokens || 0), 0);
+    return `<div class="team-folder">
+      <div class="team-folder-head" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+        <div class="team-folder-title">📁 ${esc(team)} <span class="badge badge-info">${list.length} agent${list.length > 1 ? 's' : ''}</span></div>
+        <div class="team-folder-stats">
+          <span>Models: ${esc(models.join(', '))}</span>
+          <span>Tokens: <strong>${fmt(totalTok)}</strong></span>
+          <span>Spend: <strong>${fmtCost(totalCost)}</strong></span>
+          <span>▾</span>
         </div>
-      </td>
-    </tr>`;
+      </div>
+      <div class="team-folder-body">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Agent</th><th>Description</th><th>Model</th><th>Status</th><th>Team</th><th>Budget</th><th>Budget Usage</th><th>Actions</th></tr></thead>
+            <tbody>${list.map(renderAgentRow).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
   }).join('');
 }
 
@@ -2141,21 +2616,21 @@ async function loadAgentDetail(agentId) {
 
     // Meta grid
     document.getElementById('ad-meta-grid').innerHTML = `
-      <div class="detail-meta-item"><div class="label">Agent ID</div><div class="value">${agent.id}</div></div>
-      <div class="detail-meta-item"><div class="label">Name</div><div class="value">${agent.name}</div></div>
-      <div class="detail-meta-item"><div class="label">Team</div><div class="value">${agent.owner_team}</div></div>
-      <div class="detail-meta-item"><div class="label">Status</div><div class="value">${agent.status}</div></div>
-      <div class="detail-meta-item"><div class="label">Created</div><div class="value">${fmtDate(agent.created_at)}</div></div>
-      <div class="detail-meta-item"><div class="label">Updated</div><div class="value">${fmtDate(agent.updated_at)}</div></div>
+      <div class="detail-meta-item"><div class="label">Agent ID</div><div class="value">${Number(agent.id)}</div></div>
+      <div class="detail-meta-item"><div class="label">Name</div><div class="value">${esc(agent.name)}</div></div>
+      <div class="detail-meta-item"><div class="label">Team</div><div class="value">${esc(agent.owner_team)}</div></div>
+      <div class="detail-meta-item"><div class="label">Status</div><div class="value">${esc(agent.status)}</div></div>
+      <div class="detail-meta-item"><div class="label">Created</div><div class="value">${esc(fmtDate(agent.created_at))}</div></div>
+      <div class="detail-meta-item"><div class="label">Updated</div><div class="value">${esc(fmtDate(agent.updated_at))}</div></div>
     `;
 
     // Model info
     document.getElementById('ad-model-info').innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-        <code style="font-size:16px;font-weight:600;color:var(--accent)">${agent.model}</code>
+        <code style="font-size:16px;font-weight:600;color:var(--accent)">${esc(agent.model)}</code>
       </div>
       <div style="font-size:12px;color:var(--text-secondary)">
-        This agent uses the <strong>${agent.model}</strong> model for all executions.
+        This agent uses the <strong>${esc(agent.model)}</strong> model for all executions.
         Model pricing and usage details are available in the Model Catalog.
       </div>
     `;
@@ -2185,12 +2660,12 @@ async function loadAgentDetail(agentId) {
       execTbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);text-align:center;padding:20px">No executions yet</td></tr>';
     } else {
       execTbody.innerHTML = usageRecords.map(r => `<tr>
-        <td style="font-family:monospace;font-size:11px;color:var(--text-secondary)">${r.request_id.substring(0, 12)}…</td>
-        <td>${r.total_tokens.toLocaleString()}</td>
-        <td>${r.latency_ms}ms</td>
+        <td style="font-family:monospace;font-size:11px;color:var(--text-secondary)">${esc((r.request_id || '').substring(0, 12))}…</td>
+        <td>${Number(r.total_tokens || 0).toLocaleString()}</td>
+        <td>${Number(r.latency_ms || 0)}ms</td>
         <td>${execStatusBadge(r.status)}</td>
-        <td><span class="badge badge-info" style="font-size:11px;padding:1px 6px">${r.source}</span></td>
-        <td style="font-size:12px;color:var(--text-secondary)">${fmtDate(r.created_at)}</td>
+        <td><span class="badge badge-info" style="font-size:11px;padding:1px 6px">${esc(r.source)}</span></td>
+        <td style="font-size:12px;color:var(--text-secondary)">${esc(fmtDate(r.created_at))}</td>
       </tr>`).join('');
     }
 
@@ -2200,11 +2675,11 @@ async function loadAgentDetail(agentId) {
       costTbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:20px">No cost records yet</td></tr>';
     } else {
       costTbody.innerHTML = costRecords.map(r => `<tr>
-        <td style="font-family:monospace;font-size:11px;color:var(--text-secondary)">${r.request_id.substring(0, 12)}…</td>
-        <td>${r.total_tokens.toLocaleString()}</td>
+        <td style="font-family:monospace;font-size:11px;color:var(--text-secondary)">${esc((r.request_id || '').substring(0, 12))}…</td>
+        <td>${Number(r.total_tokens || 0).toLocaleString()}</td>
         <td style="font-weight:600">${fmtCost(r.cost_usd)}</td>
-        <td><span class="badge badge-info" style="font-size:11px;padding:1px 6px">${r.source}</span></td>
-        <td style="font-size:12px;color:var(--text-secondary)">${fmtDate(r.created_at)}</td>
+        <td><span class="badge badge-info" style="font-size:11px;padding:1px 6px">${esc(r.source)}</span></td>
+        <td style="font-size:12px;color:var(--text-secondary)">${esc(fmtDate(r.created_at))}</td>
       </tr>`).join('');
     }
 
@@ -2244,15 +2719,210 @@ async function toggleAgentStatus() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// SHARED CATALOG & TEAMS HELPERS
+// ═══════════════════════════════════════════════════════════
+async function ensureCatalogLoaded() {
+  const [models, pricing, teams] = await Promise.all([
+    fetchJSON(`${USAGE_API}/models`).catch(() => []),
+    fetchJSON(`${COST_API}/pricing`).catch(() => []),
+    fetchJSON('/teams').catch(() => [])
+  ]);
+  if (models.length) STATE.modelsCatalog = models;
+  if (pricing.length) STATE.pricingCatalog = pricing;
+  if (teams.length) STATE.teams = teams;
+}
+
+function populateModelSelect(selectEl, selectedModel) {
+  const pMap = {};
+  STATE.pricingCatalog.forEach(p => { pMap[p.model] = p; });
+  const list = STATE.modelsCatalog.length
+    ? STATE.modelsCatalog
+    : [
+        { name: 'gpt-4o-mini', provider: 'OpenAI', is_local: false },
+        { name: 'claude-haiku', provider: 'Anthropic', is_local: false },
+        { name: 'gemini-flash', provider: 'Google', is_local: false },
+        { name: 'llama3.1:8b', provider: 'Ollama/local', is_local: true },
+        { name: 'qwen3.5:4b', provider: 'Ollama/local', is_local: true }
+      ];
+  selectEl.innerHTML = list.map(m => {
+    const p = pMap[m.name];
+    const rateTxt = p ? ` · ${fmtRatePer1M(p.output_price_per_1k)} out` : (m.is_local ? ' · Local Free' : '');
+    return `<option value="${esc(m.name)}">${esc(m.name)} (${esc(m.provider)}${esc(rateTxt)})</option>`;
+  }).join('');
+  if (selectedModel) selectEl.value = selectedModel;
+}
+
+// ═══════════════════════════════════════════════════════════
+// PAGE: TEAMS & MEMBERS
+// ═══════════════════════════════════════════════════════════
+async function loadTeams() {
+  try {
+    const [teams, overview] = await Promise.all([
+      fetchJSON('/teams'),
+      fetchJSON('/dashboard/overview').catch(() => ({ agents: [], tokens_per_agent: [] }))
+    ]);
+    STATE.teams = teams;
+    STATE.agents = overview.agents || [];
+    const aStats = {};
+    (overview.tokens_per_agent || []).forEach(x => { aStats[x.agent_id] = x; });
+
+    const totalMembers = teams.reduce((s, t) => s + (t.member_count || 0), 0);
+    const totalBudget = teams.reduce((s, t) => s + (t.daily_token_budget || 0), 0);
+    const totalCost = (overview.tokens_per_agent || []).reduce((s, a) => s + parseFloat(a.total_cost_usd || 0), 0);
+
+    document.getElementById('tm-count').textContent = teams.length;
+    document.getElementById('tm-members-count').textContent = totalMembers;
+    document.getElementById('tm-budget-total').textContent = fmt(totalBudget) + ' tok';
+    document.getElementById('tm-spend-total').textContent = fmtCost(totalCost);
+
+    const dir = document.getElementById('teams-directory');
+    if (!teams.length) {
+      dir.innerHTML = '<div class="card"><div class="card-body" style="color:var(--text-muted);text-align:center">No teams configured yet.</div></div>';
+      return;
+    }
+
+    dir.innerHTML = teams.map(t => {
+      const teamAgents = STATE.agents.filter(a => a.owner_team === t.name);
+      const tokToday = teamAgents.reduce((s, a) => s + ((aStats[a.id] || {}).tokens_today || 0), 0);
+      const spendUsd = teamAgents.reduce((s, a) => s + parseFloat((aStats[a.id] || {}).total_cost_usd || 0), 0);
+      const pct = Math.round(tokToday / (t.daily_token_budget || 1) * 100);
+      const fillColor = pct >= 100 ? 'var(--danger)' : pct >= 80 ? 'var(--warning)' : 'var(--success)';
+
+      return `<div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div>
+            <h3>📁 ${esc(t.name)} <span class="badge badge-info" style="margin-left:6px">${Number(t.member_count)} member${t.member_count === 1 ? '' : 's'}</span> <span class="badge badge-inactive" style="margin-left:4px">${teamAgents.length} agent${teamAgents.length === 1 ? '' : 's'}</span></h3>
+            <div class="sub-muted">${esc(t.description || 'No description')}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:13px">Spend: <strong>${fmtCost(spendUsd)}</strong></span>
+            <button class="btn btn-secondary btn-sm" data-team="${esc(t.name)}" onclick="openTeamAgents(this.dataset.team)">View Agents</button>
+            ${t.name !== 'default' ? `<button class="btn btn-danger btn-sm" data-id="${Number(t.id)}" data-team="${esc(t.name)}" onclick="deleteTeamById(+this.dataset.id,this.dataset.team)">Delete</button>` : ''}
+          </div>
+        </div>
+        <div class="card-body">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap">
+            <div style="min-width:220px;flex:1">
+              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Team Daily Token Budget: <strong>${fmt(tokToday)}</strong> / ${fmt(t.daily_token_budget)} (${pct}%)</div>
+              <div class="budget-bar" style="max-width:300px"><div class="budget-fill" style="width:${Math.min(100, pct)}%;background:${fillColor}"></div></div>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary)">
+              Agents: ${teamAgents.length ? teamAgents.map(a => `<code style="color:var(--accent);margin-right:6px">${esc(a.name)} (${esc(a.model)})</code>`).join('') : 'None assigned'}
+            </div>
+          </div>
+
+          <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">TEAM MEMBERS</div>
+          <div class="table-wrap" style="margin-bottom:12px">
+            <table class="data-table">
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th style="width:90px">Action</th></tr></thead>
+              <tbody>
+                ${t.members.length ? t.members.map(m => `<tr>
+                  <td><strong>${esc(m.name)}</strong></td>
+                  <td style="color:var(--text-secondary)">${esc(m.email || '—')}</td>
+                  <td><span class="badge ${m.role === 'admin' ? 'badge-warning' : m.role === 'developer' ? 'badge-info' : 'badge-inactive'}">${esc(m.role)}</span></td>
+                  <td><button class="btn btn-danger btn-sm" onclick="removeMemberFromTeam(${Number(t.id)},${Number(m.id)})">Remove</button></td>
+                </tr>`).join('') : '<tr><td colspan="4" style="color:var(--text-muted);text-align:center">No members yet</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--bg);padding:10px;border-radius:6px">
+            <input type="text" id="add-m-name-${t.id}" placeholder="Member name *" style="flex:1;min-width:150px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px" />
+            <input type="email" id="add-m-email-${t.id}" placeholder="email@company.local" style="flex:1;min-width:160px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px" />
+            <select id="add-m-role-${t.id}" class="filter-select" style="padding:6px 10px;font-size:12px">
+              <option value="developer">developer</option>
+              <option value="admin">admin</option>
+              <option value="viewer">viewer</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="addMemberToTeam(${t.id})">+ Add Member</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    console.error('Teams load error:', e);
+  }
+}
+
+async function createNewTeam() {
+  const name = document.getElementById('new-team-name').value.trim();
+  const description = document.getElementById('new-team-desc').value.trim() || null;
+  const daily_token_budget = parseInt(document.getElementById('new-team-budget').value) || 250000;
+  if (!name) { showToast('Team name is required'); return; }
+  try {
+    const r = await fetch('/teams', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, description, daily_token_budget })
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || 'Create failed');
+    document.getElementById('new-team-name').value = '';
+    document.getElementById('new-team-desc').value = '';
+    showToast(`Team "${name}" created ✓`);
+    loadTeams();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+async function addMemberToTeam(teamId) {
+  const nameEl = document.getElementById(`add-m-name-${teamId}`);
+  const emailEl = document.getElementById(`add-m-email-${teamId}`);
+  const roleEl = document.getElementById(`add-m-role-${teamId}`);
+  const name = nameEl.value.trim();
+  if (!name) { showToast('Member name is required'); return; }
+  try {
+    const r = await fetch(`/teams/${teamId}/members`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email: emailEl.value.trim() || null, role: roleEl.value })
+    });
+    if (!r.ok) throw new Error((await r.json()).detail || 'Add failed');
+    showToast(`Added ${name} ✓`);
+    loadTeams();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+async function removeMemberFromTeam(teamId, memberId) {
+  try {
+    await fetch(`/teams/${teamId}/members/${memberId}`, { method: 'DELETE' });
+    showToast('Member removed ✓');
+    loadTeams();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+async function deleteTeamById(teamId, name) {
+  if (!confirm(`Delete team "${name}" and its member list? (Agents remain intact)`)) return;
+  try {
+    await fetch(`/teams/${teamId}`, { method: 'DELETE' });
+    showToast('Team deleted ✓');
+    loadTeams();
+  } catch (e) {
+    showToast('Error: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // PAGE: CREATE / EDIT AGENT
 // ═══════════════════════════════════════════════════════════
 async function setupAgentForm(agentId) {
   document.getElementById('page-create-agent').classList.add('active');
+  await ensureCatalogLoaded();
+
+  const teamSel = document.getElementById('form-team');
+  const teamNames = STATE.teams.length ? STATE.teams.map(t => t.name) : ['default', 'Research', 'Engineering', 'Support', 'Operations', 'Data', 'Legal'];
+  teamSel.innerHTML = teamNames.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+
+  populateModelSelect(document.getElementById('form-model'), 'gpt-4o-mini');
 
   if (agentId) {
     // Edit mode
     document.getElementById('form-title').textContent = 'Edit Agent';
-    document.getElementById('form-subtitle').textContent = 'Update agent configuration.';
+    document.getElementById('form-subtitle').textContent = 'Update agent configuration, model assignment, team, and budget mode.';
     document.getElementById('form-submit-btn').textContent = 'Save Changes';
     document.getElementById('form-agent-id').value = agentId;
 
@@ -2261,8 +2931,12 @@ async function setupAgentForm(agentId) {
       document.getElementById('form-name').value = agent.name;
       document.getElementById('form-description').value = agent.description || '';
       document.getElementById('form-model').value = agent.model;
-      document.getElementById('form-team').value = agent.owner_team;
+      if (![...teamSel.options].some(o => o.value === agent.owner_team)) {
+        teamSel.innerHTML += `<option value="${esc(agent.owner_team)}">${esc(agent.owner_team)}</option>`;
+      }
+      teamSel.value = agent.owner_team;
       document.getElementById('form-budget').value = agent.daily_token_budget;
+      document.getElementById('form-budget-mode').value = agent.budget_mode || 'soft';
       document.getElementById('form-status').value = agent.status;
     } catch (e) {
       showToast('Error loading agent');
@@ -2270,14 +2944,15 @@ async function setupAgentForm(agentId) {
   } else {
     // Create mode
     document.getElementById('form-title').textContent = 'Create Agent';
-    document.getElementById('form-subtitle').textContent = 'Add a new agent to the fleet.';
+    document.getElementById('form-subtitle').textContent = 'Add a new agent to the fleet with explicit model, team, and budget policy.';
     document.getElementById('form-submit-btn').textContent = 'Create Agent';
     document.getElementById('form-agent-id').value = '';
     document.getElementById('form-name').value = '';
     document.getElementById('form-description').value = '';
     document.getElementById('form-model').value = 'gpt-4o-mini';
-    document.getElementById('form-team').value = 'default';
+    teamSel.value = teamNames.includes('Engineering') ? 'Engineering' : teamNames[0];
     document.getElementById('form-budget').value = '100000';
+    document.getElementById('form-budget-mode').value = 'soft';
     document.getElementById('form-status').value = 'ACTIVE';
   }
 }
@@ -2290,6 +2965,7 @@ async function submitAgentForm() {
     model: document.getElementById('form-model').value,
     owner_team: document.getElementById('form-team').value.trim() || 'default',
     daily_token_budget: parseInt(document.getElementById('form-budget').value) || 100000,
+    budget_mode: document.getElementById('form-budget-mode').value || 'soft',
     status: document.getElementById('form-status').value
   };
 
@@ -2297,7 +2973,6 @@ async function submitAgentForm() {
 
   try {
     if (agentId) {
-      // Update
       await fetch(`/agents/${agentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -2306,7 +2981,6 @@ async function submitAgentForm() {
       showToast('Agent updated ✓');
       navigateTo('agent-detail', parseInt(agentId));
     } else {
-      // Create
       const resp = await fetch('/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2330,20 +3004,43 @@ async function submitAgentForm() {
 // ═══════════════════════════════════════════════════════════
 async function loadPlayground(preselectedAgentId) {
   try {
-    const agents = await fetchJSON('/agents');
+    const [agents] = await Promise.all([
+      fetchJSON('/agents'),
+      ensureCatalogLoaded()
+    ]);
     STATE.agents = agents;
-    const select = document.getElementById('pg-agent-select');
-    select.innerHTML = '<option value="">Select an agent…</option>' +
-      agents.filter(a => a.status === 'ACTIVE').map(a =>
-        `<option value="${a.id}" data-model="${a.model}">${a.name}</option>`
-      ).join('');
+    const active = agents.filter(a => a.status === 'ACTIVE');
+    const prodAgents = active.filter(a => !isLoadTest(a.name));
+    const ltAgents = active.filter(a => isLoadTest(a.name));
 
-    if (preselectedAgentId) {
-      select.value = preselectedAgentId;
+    const select = document.getElementById('pg-agent-select');
+    const optFmt = a => `<option value="${Number(a.id)}" data-model="${esc(a.model)}">${esc(a.name)} — ${esc(a.model)} (${esc(a.owner_team)})</option>`;
+    select.innerHTML = '<option value="">Select an agent…</option>' +
+      (prodAgents.length ? `<optgroup label="Production Agents">${prodAgents.map(optFmt).join('')}</optgroup>` : '') +
+      (ltAgents.length ? `<optgroup label="Load Testing Agents">${ltAgents.map(optFmt).join('')}</optgroup>` : '');
+
+    populateModelSelect(document.getElementById('pg-model-select'));
+
+    const initialId = preselectedAgentId || (prodAgents[0] && prodAgents[0].id) || (active[0] && active[0].id);
+    if (initialId) {
+      select.value = initialId;
       updatePlaygroundAgent();
     }
 
-    // Reset UI
+    // Fleet Model Quick-Reference table
+    const fleetBody = document.getElementById('pg-fleet-map-tbody');
+    if (fleetBody) {
+      fleetBody.innerHTML = agents.map(a => `<tr>
+        <td><strong>${esc(a.name)}</strong> ${isLoadTest(a.name) ? '<span class="badge badge-loadtest" style="font-size:10px">LT</span>' : ''}</td>
+        <td>${esc(a.owner_team)}</td>
+        <td><code style="color:var(--accent)">${esc(a.model)}</code></td>
+        <td><span class="badge ${(a.budget_mode || 'soft') === 'hard' ? 'badge-critical' : 'badge-info'}">${esc((a.budget_mode || 'soft').toUpperCase())}</span></td>
+        <td>${statusBadge(a.status)}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="document.getElementById('pg-agent-select').value=${Number(a.id)};updatePlaygroundAgent();" ${a.status !== 'ACTIVE' ? 'disabled' : ''}>Select</button></td>
+      </tr>`).join('');
+    }
+
+    // Reset result area
     document.getElementById('pg-result-card').style.display = 'none';
     document.getElementById('pg-placeholder').style.display = '';
     document.getElementById('pg-steps-card').style.display = 'none';
@@ -2355,13 +3052,48 @@ async function loadPlayground(preselectedAgentId) {
 function updatePlaygroundAgent() {
   const select = document.getElementById('pg-agent-select');
   const opt = select.options[select.selectedIndex];
+  const memberSel = document.getElementById('pg-member-select');
+  const modelSel = document.getElementById('pg-model-select');
+
   if (opt && opt.value) {
     const agent = STATE.agents.find(a => a.id === parseInt(opt.value));
-    document.getElementById('pg-model').textContent = agent ? agent.model : '—';
-    document.getElementById('pg-status').innerHTML = agent ? statusBadge(agent.status) : '—';
+    if (!agent) return;
+    document.getElementById('pg-model').textContent = agent.model;
+    document.getElementById('pg-status').innerHTML = statusBadge(agent.status);
+    document.getElementById('pg-team-policy').textContent = `${agent.owner_team} · ${(agent.budget_mode || 'soft').toUpperCase()} budget (${fmt(agent.daily_token_budget)})`;
+    if (modelSel) modelSel.value = agent.model;
+
+    const p = STATE.pricingCatalog.find(x => x.model === agent.model);
+    document.getElementById('pg-model-meta').textContent = p ? `(${fmtRatePer1M(p.input_price_per_1k)} in / ${fmtRatePer1M(p.output_price_per_1k)} out)` : '';
+
+    const teamObj = STATE.teams.find(t => t.name === agent.owner_team);
+    const members = (teamObj && teamObj.members) || [];
+    memberSel.innerHTML = members.map(m => `<option value="${esc(m.name)}">${esc(m.name)} (${esc(m.role)})</option>`).join('') +
+      '<option value="">Anonymous / API</option>';
   } else {
     document.getElementById('pg-model').textContent = '—';
     document.getElementById('pg-status').textContent = '—';
+    document.getElementById('pg-team-policy').textContent = '—';
+    document.getElementById('pg-model-meta').textContent = '';
+    memberSel.innerHTML = '<option value="">Anonymous / API</option>';
+  }
+}
+
+async function switchPlaygroundAgentModel() {
+  const agentId = document.getElementById('pg-agent-select').value;
+  const newModel = document.getElementById('pg-model-select').value;
+  if (!agentId || !newModel) { showToast('Select an agent and model first'); return; }
+  try {
+    const resp = await fetch(`/agents/${agentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: newModel })
+    });
+    if (!resp.ok) throw new Error('Failed to switch model');
+    showToast(`Model updated to ${newModel} ✓`);
+    await loadPlayground(parseInt(agentId));
+  } catch (e) {
+    showToast('Error: ' + e.message);
   }
 }
 
@@ -2374,22 +3106,21 @@ async function runPlayground() {
   if (!agentId) { showToast('Select an agent first'); return; }
 
   const prompt = document.getElementById('pg-prompt').value.trim();
+  const executedBy = document.getElementById('pg-member-select').value || null;
   const btn = document.getElementById('pg-run-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Running…';
 
-  // Show steps
   document.getElementById('pg-steps-card').style.display = '';
   document.getElementById('pg-result-card').style.display = 'none';
   document.getElementById('pg-placeholder').style.display = 'none';
 
   const stepsDiv = document.getElementById('pg-steps');
-  const steps = ['Request sent', 'Agent executed', 'Usage recorded', 'Cost calculated'];
+  const steps = ['Request sent', 'Budget policy checked', 'Agent & model executed', 'Usage & cost recorded'];
   stepsDiv.innerHTML = steps.map((s, i) => `<div class="exec-step pending" id="pg-step-${i}">○ ${s}</div>`).join('');
 
-  // Animate steps
-  for (let i = 0; i < steps.length; i++) {
-    await new Promise(r => setTimeout(r, 200));
+  for (let i = 0; i < 2; i++) {
+    await new Promise(r => setTimeout(r, 120));
     document.getElementById(`pg-step-${i}`).className = 'exec-step done';
     document.getElementById(`pg-step-${i}`).innerHTML = `✓ ${steps[i]}`;
   }
@@ -2398,61 +3129,55 @@ async function runPlayground() {
     const resp = await fetch(`/agents/${agentId}/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: prompt || undefined, source: 'demo' })
+      body: JSON.stringify({ prompt: prompt || undefined, source: 'demo', executed_by: executedBy })
     });
     const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error(data.detail || `HTTP ${resp.status}`);
+    }
 
-    // Complete steps
-    stepsDiv.querySelectorAll('.exec-step').forEach(s => {
+    stepsDiv.querySelectorAll('.exec-step').forEach((s, idx) => {
       s.className = 'exec-step done';
-      if (!s.innerHTML.startsWith('✓')) s.innerHTML = '✓ ' + s.textContent.substring(2);
+      s.innerHTML = `✓ ${steps[idx]}`;
     });
 
-    // Show result
     document.getElementById('pg-result-card').style.display = '';
     document.getElementById('pg-placeholder').style.display = 'none';
 
-    // Response text
     const resultText = document.getElementById('pg-result-text');
     if (data.usage && data.usage.status === 'success') {
-      resultText.textContent = `Agent "${data.agent.name}" executed successfully.\n\n` +
+      resultText.textContent =
+        `${data.usage.response_preview || `Agent "${data.agent.name}" executed cleanly.`}\n\n` +
+        `Agent: ${data.agent.name} (${data.agent.owner_team})\n` +
+        `Executed By: ${data.usage.executed_by || 'Anonymous / API'}\n` +
         `Model: ${data.agent.model}\n` +
-        `Request ID: ${data.request_id}\n` +
         `Tokens: ${data.usage.total_tokens} (${data.usage.input_tokens} in / ${data.usage.output_tokens} out)\n` +
-        `Latency: ${data.usage.latency_ms}ms\n` +
-        `Estimated Cost: ${fmtCost(data.cost.cost_usd)}\n` +
-        `Trace: ${data.trace.join(' → ')}\n` +
-        `Total Pipeline: ${data.timings_ms.total}ms`;
+        `Estimated Cost: ${fmtCost(data.cost.cost_usd)} (${fmtUsdRaw(data.cost.cost_usd)})\n` +
+        `Trace: ${data.trace.join(' → ')} (${data.timings_ms.total}ms)`;
     } else {
       resultText.textContent = `Execution failed: ${data.usage?.error_message || 'Unknown error'}`;
     }
 
-    // Metrics
     const metricsDiv = document.getElementById('pg-metrics');
     metricsDiv.style.display = '';
     metricsDiv.innerHTML = `
-      <div class="detail-meta-item"><div class="label">Request ID</div><div class="value" style="font-family:monospace;font-size:11px">${data.request_id}</div></div>
-      <div class="detail-meta-item"><div class="label">Total Tokens</div><div class="value">${data.usage.total_tokens}</div></div>
-      <div class="detail-meta-item"><div class="label">Latency</div><div class="value">${data.usage.latency_ms}ms</div></div>
+      <div class="detail-meta-item"><div class="label">Executed By</div><div class="value">${esc(data.usage.executed_by || 'API')}</div></div>
+      <div class="detail-meta-item"><div class="label">Total Tokens</div><div class="value">${Number(data.usage.total_tokens || 0)}</div></div>
+      <div class="detail-meta-item"><div class="label">Latency</div><div class="value">${Number(data.usage.latency_ms || 0)}ms</div></div>
       <div class="detail-meta-item"><div class="label">Cost</div><div class="value">${fmtCost(data.cost.cost_usd)}</div></div>
       <div class="detail-meta-item"><div class="label">Status</div><div class="value">${data.usage.status === 'success' ? '✓ SUCCESS' : '✗ FAILED'}</div></div>
       <div class="detail-meta-item"><div class="label">Budget Used</div><div class="value">${parseFloat(data.cost.budget_used_pct || 0).toFixed(1)}%</div></div>
     `;
 
-    // Raw JSON
     document.getElementById('pg-raw-json').textContent = JSON.stringify(data, null, 2);
-
     showToast('Execution complete ✓');
 
-    // Auto-refresh overview data in background
-    setTimeout(() => {
-      if (STATE.overview) loadOverview();
-    }, 500);
-
+    setTimeout(() => { if (STATE.overview) loadOverview(); }, 500);
   } catch (e) {
     document.getElementById('pg-result-card').style.display = '';
-    document.getElementById('pg-result-text').textContent = 'Error: ' + e.message;
-    showToast('Execution failed');
+    document.getElementById('pg-result-text').textContent = 'Blocked / Error: ' + e.message;
+    document.getElementById('pg-metrics').style.display = 'none';
+    showToast('Execution stopped: ' + e.message, 3500);
   } finally {
     btn.disabled = false;
     btn.innerHTML = '▶ Run Agent';
@@ -2469,10 +3194,12 @@ function toggleTechnicalDetails() {
 // ═══════════════════════════════════════════════════════════
 async function loadModels() {
   try {
+    const sq = scopeQuery();
+    const qSuffix = sq ? `?${sq}` : '';
     const [models, pricing, modelAnalytics, agents] = await Promise.all([
       fetchJSON(`${USAGE_API}/models`),
       fetchJSON(`${COST_API}/pricing`),
-      fetchJSON(`${COST_API}/analytics/models`).catch(() => []),
+      fetchJSON(`${COST_API}/analytics/models${qSuffix}`).catch(() => []),
       fetchJSON('/agents')
     ]);
 
@@ -2482,11 +3209,16 @@ async function loadModels() {
     const analyticsMap = {};
     modelAnalytics.forEach(m => { analyticsMap[m.model] = m; });
 
+    const scopedAgents = filterAgentsByScope(agents, STATE.scope);
     const agentsByModel = {};
-    agents.forEach(a => {
+    scopedAgents.forEach(a => {
       if (!agentsByModel[a.model]) agentsByModel[a.model] = [];
-      agentsByModel[a.model].push(a.name);
+      agentsByModel[a.model].push(a);
     });
+
+    document.getElementById('models-in-hdr').textContent = `Input / 1M (${STATE.currency})`;
+    document.getElementById('models-out-hdr').textContent = `Output / 1M (${STATE.currency})`;
+    document.getElementById('models-cost-hdr').textContent = `Total Cost (${STATE.currency})`;
 
     const tbody = document.getElementById('models-tbody');
     tbody.innerHTML = models.map(m => {
@@ -2494,12 +3226,13 @@ async function loadModels() {
       const a = analyticsMap[m.name] || {};
       const agentsUsing = agentsByModel[m.name] || [];
       return `<tr>
-        <td><strong style="color:var(--accent)">${m.name}</strong></td>
-        <td>${m.provider}</td>
-        <td>${m.is_local ? '<span class="badge badge-info">Local</span>' : '<span class="badge badge-warning">Cloud API</span>'}</td>
-        <td>${p.input_price_per_1k != null ? '$' + parseFloat(p.input_price_per_1k).toFixed(6) : '—'}</td>
-        <td>${p.output_price_per_1k != null ? '$' + parseFloat(p.output_price_per_1k).toFixed(6) : '—'}</td>
-        <td>${agentsUsing.length > 0 ? agentsUsing.map(n => `<span style="font-size:11px;color:var(--text-secondary)">${n}</span>`).join(', ') : '—'}</td>
+        <td><strong style="color:var(--accent)">${esc(m.name)}</strong></td>
+        <td>${esc(m.provider)}</td>
+        <td>${m.is_local ? '<span class="badge badge-info">Local (Free)</span>' : '<span class="badge badge-warning">Cloud API</span>'}</td>
+        <td>${p.input_price_per_1k != null ? `<strong>${fmtRatePer1M(p.input_price_per_1k)}</strong><br><span class="sub-muted">$${parseFloat(p.input_price_per_1k).toFixed(6)} / 1K</span>` : '—'}</td>
+        <td>${p.output_price_per_1k != null ? `<strong>${fmtRatePer1M(p.output_price_per_1k)}</strong><br><span class="sub-muted">$${parseFloat(p.output_price_per_1k).toFixed(6)} / 1K</span>` : '—'}</td>
+        <td>${agentsUsing.length > 0 ? agentsUsing.map(ag => `<span class="badge badge-inactive" style="font-size:11px;margin:2px">${esc(ag.name)} (${esc(ag.owner_team)})</span>`).join('') : '<span class="sub-muted">None in scope</span>'}</td>
+        <td><strong>${fmt(a.total_tokens || 0)}</strong><br><span class="sub-muted">In: ${fmt(a.input_tokens || 0)} · Out: ${fmt(a.output_tokens || 0)}</span></td>
         <td>${(a.request_count || 0).toLocaleString()}</td>
         <td style="font-weight:600">${fmtCost(a.total_cost_usd)}</td>
       </tr>`;
@@ -2514,19 +3247,24 @@ async function loadModels() {
 // ═══════════════════════════════════════════════════════════
 async function loadObservability() {
   try {
-    const source = document.getElementById('obs-source-filter').value;
-    const sourceParam = source ? `?source=${source}` : '';
+    const explicitSource = document.getElementById('obs-source-filter').value;
+    const effectiveSource = explicitSource || (STATE.scope === 'all' ? '' : STATE.scope);
+    const qParam = effectiveSource && effectiveSource !== 'all' ? `source=${effectiveSource}` : '';
 
-    const usageUrl = source
-      ? `${USAGE_API}/usage?source=${source}&page=1&page_size=50`
-      : `${USAGE_API}/usage?page=1&page_size=50`;
-    const [summary, usage] = await Promise.all([
-      fetchJSON(`${USAGE_API}/usage/summary`),
-      fetchJSON(usageUrl)
+    const usageUrl = `${USAGE_API}/usage?page=1&page_size=50${qParam ? '&' + qParam : ''}`;
+    const summaryUrl = `${USAGE_API}/usage/summary${qParam ? '?' + qParam : ''}`;
+    const [summary, usage, agents] = await Promise.all([
+      fetchJSON(summaryUrl),
+      fetchJSON(usageUrl),
+      STATE.agents.length ? Promise.resolve(STATE.agents) : fetchJSON('/agents').catch(() => [])
     ]);
+    if (agents.length) STATE.agents = agents;
+    const agentMap = {};
+    STATE.agents.forEach(a => { agentMap[a.id] = a; });
 
     document.getElementById('obs-requests').textContent = summary.total_requests.toLocaleString();
     document.getElementById('obs-tokens').textContent = fmt(summary.total_tokens);
+    document.getElementById('obs-tokens-split').textContent = `In: ${fmt(summary.input_tokens || 0)} · Out: ${fmt(summary.output_tokens || 0)}`;
     document.getElementById('obs-success').textContent = summary.success_count.toLocaleString();
     document.getElementById('obs-failed').textContent = summary.failed_count.toLocaleString();
     document.getElementById('obs-latency').textContent = Math.round(summary.avg_latency_ms) + 'ms';
@@ -2534,21 +3272,29 @@ async function loadObservability() {
     const items = usage.items || [];
     const tbody = document.getElementById('obs-tbody');
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="9" style="color:var(--text-muted);text-align:center;padding:30px">No records</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" style="color:var(--text-muted);text-align:center;padding:30px">No records in current scope</td></tr>';
       return;
     }
 
-    tbody.innerHTML = items.map(r => `<tr>
-      <td style="font-family:monospace;font-size:11px;color:var(--text-secondary)">${r.request_id.substring(0, 12)}…</td>
-      <td><strong>${r.agent_name}</strong></td>
-      <td>${r.input_tokens.toLocaleString()}</td>
-      <td>${r.output_tokens.toLocaleString()}</td>
-      <td style="font-weight:600">${r.total_tokens.toLocaleString()}</td>
-      <td>${r.latency_ms}ms</td>
-      <td>${execStatusBadge(r.status)}</td>
-      <td><span class="badge badge-info" style="font-size:11px;padding:1px 6px">${r.source}</span></td>
-      <td style="font-size:12px;color:var(--text-secondary)">${fmtDate(r.created_at)}</td>
-    </tr>`).join('');
+    tbody.innerHTML = items.map(r => {
+      const ag = agentMap[r.agent_id] || {};
+      const modelName = r.model || ag.model || '—';
+      const teamName = ag.owner_team || 'default';
+      const traceTitle = r.response_preview ? `title="${esc(r.response_preview)}"` : '';
+      return `<tr ${traceTitle}>
+        <td style="font-family:monospace;font-size:11px;color:var(--text-secondary)">${esc((r.request_id || '').substring(0, 12))}…</td>
+        <td><strong>${esc(r.agent_name)}</strong> <span class="badge badge-inactive" style="font-size:10px;padding:1px 6px">${esc(teamName)}</span></td>
+        <td><code style="font-size:12px;color:var(--accent)">${esc(modelName)}</code></td>
+        <td style="font-size:12px;color:var(--text-secondary)">${esc(r.executed_by || 'API')}</td>
+        <td>${Number(r.input_tokens || 0).toLocaleString()}</td>
+        <td>${Number(r.output_tokens || 0).toLocaleString()}</td>
+        <td style="font-weight:600">${Number(r.total_tokens || 0).toLocaleString()}</td>
+        <td>${Number(r.latency_ms || 0)}ms</td>
+        <td>${execStatusBadge(r.status)}</td>
+        <td><span class="badge ${r.source === 'loadtest' ? 'badge-loadtest' : 'badge-info'}" style="font-size:11px;padding:1px 6px">${esc(r.source)}</span></td>
+        <td style="font-size:12px;color:var(--text-secondary)">${esc(fmtDate(r.created_at))}</td>
+      </tr>`;
+    }).join('');
   } catch (e) {
     console.error('Observability load error:', e);
   }
@@ -2559,37 +3305,96 @@ async function loadObservability() {
 // ═══════════════════════════════════════════════════════════
 async function loadCosts() {
   try {
+    const sq = scopeQuery();
+    const qSuffix = sq ? `?${sq}` : '';
     const [overview, modelAnalytics, agentAnalytics, pricing, agents] = await Promise.all([
-      fetchJSON(`${COST_API}/analytics/overview`),
-      fetchJSON(`${COST_API}/analytics/models`),
-      fetchJSON(`${COST_API}/analytics/agents`),
+      fetchJSON(`${COST_API}/analytics/overview${qSuffix}`),
+      fetchJSON(`${COST_API}/analytics/models${qSuffix}`),
+      fetchJSON(`${COST_API}/analytics/agents${qSuffix}`),
       fetchJSON(`${COST_API}/pricing`),
       fetchJSON('/agents')
     ]);
+    STATE.agents = agents;
 
     const totalCost = parseFloat(overview.total_cost_usd || 0);
     const totalReq = overview.total_requests || 0;
     const avgCost = totalReq > 0 ? totalCost / totalReq : 0;
+    const scopeLabel = STATE.scope === 'production' ? 'Production' : STATE.scope === 'loadtest' ? 'Load Testing' : 'All Traffic';
 
+    document.getElementById('cost-scope-sub').textContent = `Scope: ${scopeLabel} · Currency: ${STATE.currency} (${currSymbol()})`;
     document.getElementById('cost-total').textContent = fmtCost(totalCost);
+    document.getElementById('cost-total-sub').textContent = STATE.currency === 'INR' ? `≈ ${fmtUsdRaw(totalCost)} USD` : `≈ ₹${(totalCost * USD_TO_INR).toFixed(2)} INR`;
     document.getElementById('cost-avg').textContent = fmtCost(avgCost);
+    document.getElementById('cost-tokens-sub').textContent = `${fmt(overview.total_tokens || 0)} tokens (${fmt(overview.input_tokens || 0)} in / ${fmt(overview.output_tokens || 0)} out)`;
     document.getElementById('cost-requests').textContent = totalReq.toLocaleString();
 
-    if (agentAnalytics.length > 0) {
-      document.getElementById('cost-highest-agent').textContent = agentAnalytics[0].agent_name;
+    const agentMap = {};
+    agents.forEach(a => { agentMap[a.id] = a; });
+    const scopedAgentIds = new Set(filterAgentsByScope(agents, STATE.scope).map(a => a.id));
+    const scopedAgentStats = agentAnalytics.filter(a => scopedAgentIds.has(a.agent_id));
+
+    if (scopedAgentStats.length > 0) {
+      const topAgent = scopedAgentStats[0];
+      const topMeta = agentMap[topAgent.agent_id] || {};
+      document.getElementById('cost-highest-agent').textContent = topAgent.agent_name;
+      document.getElementById('cost-highest-team').textContent = `Team: ${topMeta.owner_team || 'default'} · ${fmtCost(topAgent.total_cost_usd)}`;
+    } else {
+      document.getElementById('cost-highest-agent').textContent = '—';
+      document.getElementById('cost-highest-team').textContent = 'No spend in scope';
     }
+
+    // Team Cost Subfolders
+    const teamFolders = buildTeamRollup(agents, scopedAgentStats);
+    const tfContainer = document.getElementById('cost-team-folders');
+    if (!teamFolders.length) {
+      tfContainer.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px">No teams in current scope</div>';
+    } else {
+      tfContainer.innerHTML = teamFolders.map((t, idx) => `<div class="team-folder">
+        <div class="team-folder-head" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+          <div class="team-folder-title">📁 ${esc(t.team)} <span class="badge badge-info">${t.agents.length} agent${t.agents.length > 1 ? 's' : ''}</span></div>
+          <div class="team-folder-stats">
+            <span>Models: <strong>${esc([...t.models].join(', '))}</strong></span>
+            <span>Reqs: <strong>${t.requests.toLocaleString()}</strong></span>
+            <span>Tokens: <strong>${fmt(t.total_tokens)}</strong> (${fmt(t.input_tokens)} in / ${fmt(t.output_tokens)} out)</span>
+            <span style="color:var(--text);font-size:13px">Spend: <strong>${fmtCost(t.cost_usd)}</strong></span>
+            <span>▾</span>
+          </div>
+        </div>
+        <div class="team-folder-body" style="${idx === 0 ? '' : 'display:none'}">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Agent</th><th>Model</th><th>Requests</th><th>Input Tokens</th><th>Output Tokens</th><th>Total Tokens</th><th>Estimated Cost</th></tr></thead>
+              <tbody>
+                ${t.agents.map(a => `<tr>
+                  <td><span class="agent-name" onclick="navigateTo('agent-detail',${Number(a.id)})">${esc(a.name)}</span> ${isLoadTest(a.name) ? '<span class="badge badge-loadtest" style="font-size:10px">LT</span>' : ''}</td>
+                  <td><code style="font-size:12px;color:var(--accent)">${esc(a.model)}</code></td>
+                  <td>${(a.stats.request_count || 0).toLocaleString()}</td>
+                  <td>${fmt(a.stats.input_tokens || 0)}</td>
+                  <td>${fmt(a.stats.output_tokens || 0)}</td>
+                  <td><strong>${fmt(a.stats.total_tokens || 0)}</strong></td>
+                  <td style="font-weight:600">${fmtCost(a.stats.total_cost_usd || 0)}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>`).join('');
+    }
+
+    document.getElementById('cost-chart-agent-title').textContent = `Cost by Agent (${STATE.currency})`;
+    document.getElementById('cost-chart-model-title').textContent = `Cost by Model (${STATE.currency})`;
 
     // Cost by agent chart
     destroyChart('costAgent');
-    if (agentAnalytics.length) {
-      const top = agentAnalytics.slice(0, 8);
+    if (scopedAgentStats.length) {
+      const top = scopedAgentStats.slice(0, 8);
       STATE.charts.costAgent = new Chart(document.getElementById('cost-agent-chart'), {
         type: 'bar',
         data: {
           labels: top.map(d => d.agent_name),
-          datasets: [{ data: top.map(d => parseFloat(d.total_cost_usd || 0)), backgroundColor: PALETTE, borderRadius: 6, barThickness: 24 }]
+          datasets: [{ data: top.map(d => convertCost(d.total_cost_usd)), backgroundColor: PALETTE, borderRadius: 6, barThickness: 24 }]
         },
-        options: { ...chartOpts('$'), indexAxis: 'y' }
+        options: chartOpts(currSymbol(), true)
       });
     }
 
@@ -2600,7 +3405,7 @@ async function loadCosts() {
         type: 'doughnut',
         data: {
           labels: modelAnalytics.map(d => d.model),
-          datasets: [{ data: modelAnalytics.map(d => parseFloat(d.total_cost_usd || 0)), backgroundColor: PALETTE, borderWidth: 0 }]
+          datasets: [{ data: modelAnalytics.map(d => convertCost(d.total_cost_usd)), backgroundColor: PALETTE, borderWidth: 0 }]
         },
         options: {
           responsive: true,
@@ -2612,17 +3417,15 @@ async function loadCosts() {
 
     // Pricing table
     document.getElementById('cost-pricing-tbody').innerHTML = pricing.map(p => `<tr>
-      <td><strong style="color:var(--accent)">${p.model}</strong></td>
+      <td><strong style="color:var(--accent)">${esc(p.model)}</strong></td>
       <td>$${parseFloat(p.input_price_per_1k).toFixed(6)}</td>
       <td>$${parseFloat(p.output_price_per_1k).toFixed(6)}</td>
-      <td>${p.currency}</td>
+      <td><strong>${fmtRatePer1M(p.input_price_per_1k)}</strong></td>
+      <td><strong>${fmtRatePer1M(p.output_price_per_1k)}</strong></td>
     </tr>`).join('');
 
     // Budget table
-    const agentMap = {};
-    agents.forEach(a => { agentMap[a.id] = a; });
-
-    document.getElementById('cost-budget-tbody').innerHTML = agentAnalytics.map(a => {
+    document.getElementById('cost-budget-tbody').innerHTML = scopedAgentStats.map(a => {
       const agent = agentMap[a.agent_id] || {};
       const budget = agent.daily_token_budget || 100000;
       const tokensToday = a.tokens_today || 0;
@@ -2632,7 +3435,8 @@ async function loadCosts() {
       const statusText = pct >= 100 ? 'Over Budget' : pct >= 80 ? 'Warning' : 'OK';
 
       return `<tr>
-        <td><strong>${a.agent_name}</strong></td>
+        <td><span class="agent-name" onclick="navigateTo('agent-detail',${Number(a.agent_id)})">${esc(a.agent_name)}</span> <span class="badge badge-inactive" style="font-size:10px">${esc(agent.owner_team || 'default')}</span></td>
+        <td><code style="font-size:12px;color:var(--accent)">${esc(agent.model || '—')}</code></td>
         <td>${fmt(budget)}</td>
         <td>${fmt(tokensToday)}</td>
         <td>
@@ -2662,13 +3466,13 @@ async function loadAlerts() {
       return;
     }
     tbody.innerHTML = alerts.map(a => `<tr>
-      <td><strong>${a.agent_name}</strong></td>
+      <td><strong>${esc(a.agent_name)}</strong></td>
       <td>${alertBadge(a.level)}</td>
       <td style="font-weight:600;color:${a.level === 'CRITICAL' ? 'var(--danger)' : 'var(--warning)'}">${parseFloat(a.budget_used_pct || 0).toFixed(1)}%</td>
       <td>${(a.tokens_today || 0).toLocaleString()}</td>
       <td>${(a.daily_token_budget || 0).toLocaleString()}</td>
-      <td style="font-size:12px;color:var(--text-secondary)">${a.alert_date}</td>
-      <td style="font-size:12px;color:var(--text-secondary);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.message}</td>
+      <td style="font-size:12px;color:var(--text-secondary)">${esc(a.alert_date)}</td>
+      <td style="font-size:12px;color:var(--text-secondary);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.message)}</td>
     </tr>`).join('');
   } catch (e) {
     console.error('Alerts load error:', e);

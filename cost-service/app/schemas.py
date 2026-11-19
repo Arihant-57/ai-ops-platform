@@ -5,16 +5,16 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── Pricing ──────────────────────────────────────────────────────────────────
 
 class PricingBase(BaseModel):
-    model: str
-    input_price_per_1k: Decimal
-    output_price_per_1k: Decimal
-    currency: str = "USD"
+    model: str = Field(..., min_length=1, max_length=100)
+    input_price_per_1k: Decimal = Field(..., ge=0)
+    output_price_per_1k: Decimal = Field(..., ge=0)
+    currency: str = Field(default="USD", min_length=1, max_length=10)
 
 
 class PricingCreate(PricingBase):
@@ -22,9 +22,9 @@ class PricingCreate(PricingBase):
 
 
 class PricingUpdate(BaseModel):
-    input_price_per_1k: Optional[Decimal] = None
-    output_price_per_1k: Optional[Decimal] = None
-    currency: Optional[str] = None
+    input_price_per_1k: Optional[Decimal] = Field(default=None, ge=0)
+    output_price_per_1k: Optional[Decimal] = Field(default=None, ge=0)
+    currency: Optional[str] = Field(default=None, min_length=1, max_length=10)
 
 
 class PricingOut(PricingBase):
@@ -36,16 +36,16 @@ class PricingOut(PricingBase):
 # ── Cost calculation ──────────────────────────────────────────────────────────
 
 class CostCalculateRequest(BaseModel):
-    usage_id: int
-    request_id: str
-    agent_id: int
-    agent_name: str
-    model: str
-    input_tokens: int
-    output_tokens: int
-    total_tokens: int
-    daily_token_budget: int
-    source: str = "demo"
+    usage_id: int = Field(..., ge=1)
+    request_id: str = Field(..., min_length=1, max_length=64)
+    agent_id: int = Field(..., ge=1)
+    agent_name: str = Field(..., min_length=1, max_length=120)
+    model: str = Field(..., min_length=1, max_length=100)
+    input_tokens: int = Field(..., ge=0)
+    output_tokens: int = Field(..., ge=0)
+    total_tokens: int = Field(..., ge=0)
+    daily_token_budget: int = Field(..., ge=0, le=100_000_000)
+    source: str = Field(default="demo", min_length=1, max_length=40)
 
 
 class CostCalculateResponse(BaseModel):
@@ -93,6 +93,8 @@ class AlertOut(BaseModel):
 
 class OverviewAnalytics(BaseModel):
     total_requests: int
+    input_tokens: int = 0
+    output_tokens: int = 0
     total_tokens: int
     total_cost_usd: Decimal
     failed_model_calls: int
@@ -101,6 +103,8 @@ class OverviewAnalytics(BaseModel):
 class ModelAnalytics(BaseModel):
     model: str
     request_count: int
+    input_tokens: int = 0
+    output_tokens: int = 0
     total_tokens: int
     total_cost_usd: Decimal
 
@@ -109,6 +113,8 @@ class AgentAnalytics(BaseModel):
     agent_id: int
     agent_name: str
     request_count: int
+    input_tokens: int = 0
+    output_tokens: int = 0
     total_tokens: int
     total_cost_usd: Decimal
     tokens_today: int

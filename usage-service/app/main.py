@@ -7,10 +7,11 @@ import time
 import uuid
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 import httpx
 
 from .database import AsyncSessionLocal, get_db, init_db
@@ -24,7 +25,7 @@ from .schemas import (
     UsageSummary,
 )
 from .seed import seed_models
-from .simulator import call_model
+from .simulator import build_response_preview, call_model
 
 # ── logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -38,14 +39,23 @@ COST_SERVICE_URL = os.environ.get("COST_SERVICE_URL", "http://cost-service:8000"
 # Shared httpx client
 _http_client: Optional[httpx.AsyncClient] = None
 
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "CORS_ORIGINS",
+        "http://localhost:8001,http://127.0.0.1:8001,http://localhost:8002,http://localhost:8003",
+    ).split(",")
+    if o.strip()
+]
+
 # ── app ───────────────────────────────────────────────────────────────────────
 app = FastAPI(title="usage-service", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Request-ID"],
 )
 
 
@@ -122,6 +132,8 @@ async def record_usage(
 
     # Ensure model exists in registry
     model_obj = await _get_or_create_model(db, body.model)
+    p_preview = (body.prompt or "").strip()[:300] or None
+    r_preview = build_response_preview(body.agent_name, body.model, body.prompt or "", inp, out, status)
 
     usage_row = UsageRecord(
         request_id=request_id,
@@ -135,6 +147,9 @@ async def record_usage(
         status=status,
         error_message=err_msg or None,
         source=body.source,
+        executed_by=body.executed_by,
+        prompt_preview=p_preview,
+        response_preview=r_preview,
     )
     db.add(usage_row)
     await db.commit()
@@ -196,6 +211,9 @@ async def record_usage(
         latency_ms=latency_ms,
         status=status,
         error_message=err_msg or None,
+        executed_by=usage_row.executed_by,
+        prompt_preview=usage_row.prompt_preview,
+        response_preview=usage_row.response_preview,
         cost_id=cost_id,
         cost_usd=cost_usd,
         tokens_today=tokens_today,
@@ -242,66 +260,112 @@ async def live_demo(
 
 # ── /usage (paginated) ────────────────────────────────────────────────────────
 
+def _apply_usage_source_filter(stmt, source: Optional[str]):
+    if not source or source == "all":
+        return stmt
+    if source == "production":
+        return stmt.where(UsageRecord.source != "loadtest")
+    return stmt.where(UsageRecord.source == source)
+
+
+def _to_usage_out(row: UsageRecord) -> UsageRecordOut:
+    return UsageRecordOut(
+        id=row.id,
+        request_id=row.request_id,
+        agent_id=row.agent_id,
+        agent_name=row.agent_name,
+        model_id=row.model_id,
+        model=row.model_ref.name if row.model_ref else None,
+        input_tokens=row.input_tokens,
+        output_tokens=row.output_tokens,
+        total_tokens=row.total_tokens,
+        latency_ms=row.latency_ms,
+        status=row.status,
+        error_message=row.error_message,
+        source=row.source,
+        executed_by=row.executed_by,
+        prompt_preview=row.prompt_preview,
+        response_preview=row.response_preview,
+        created_at=row.created_at,
+    )
+
+
 @app.get("/usage", response_model=PaginatedUsage)
 async def list_usage(
-    page: int = 1,
-    page_size: int = 20,
+    page: int = Query(default=1, ge=1, le=10_000),
+    page_size: int = Query(default=20, ge=1, le=200),
     source: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    q = select(UsageRecord).order_by(UsageRecord.created_at.desc())
-    if source:
-        q = q.where(UsageRecord.source == source)
-    count_q = select(func.count()).select_from(q.subquery())
+    q = _apply_usage_source_filter(
+        select(UsageRecord).options(selectinload(UsageRecord.model_ref)).order_by(UsageRecord.created_at.desc()),
+        source,
+    )
+    count_q = select(func.count()).select_from(_apply_usage_source_filter(select(UsageRecord.id), source).subquery())
     total = (await db.execute(count_q)).scalar_one()
     items = (await db.execute(q.offset((page - 1) * page_size).limit(page_size))).scalars().all()
-    return PaginatedUsage(items=items, total=total, page=page, page_size=page_size)
+    return PaginatedUsage(items=[_to_usage_out(r) for r in items], total=total, page=page, page_size=page_size)
 
 
 @app.get("/usage/agent/{agent_id}", response_model=List[UsageRecordOut])
-async def usage_by_agent(agent_id: int, limit: int = 50, db: AsyncSession = Depends(get_db)):
+async def usage_by_agent(
+    agent_id: int,
+    limit: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(UsageRecord)
+        .options(selectinload(UsageRecord.model_ref))
         .where(UsageRecord.agent_id == agent_id)
         .order_by(UsageRecord.created_at.desc())
         .limit(limit)
     )
-    return result.scalars().all()
+    return [_to_usage_out(r) for r in result.scalars().all()]
 
 
 @app.get("/usage/model/{model_name}", response_model=List[UsageRecordOut])
-async def usage_by_model(model_name: str, limit: int = 50, db: AsyncSession = Depends(get_db)):
+async def usage_by_model(
+    model_name: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
     model_obj = await db.execute(select(Model).where(Model.name == model_name))
     m = model_obj.scalar_one_or_none()
     if not m:
         raise HTTPException(404, f"Model '{model_name}' not found")
     result = await db.execute(
         select(UsageRecord)
+        .options(selectinload(UsageRecord.model_ref))
         .where(UsageRecord.model_id == m.id)
         .order_by(UsageRecord.created_at.desc())
         .limit(limit)
     )
-    return result.scalars().all()
+    return [_to_usage_out(r) for r in result.scalars().all()]
 
 
 @app.get("/usage/summary", response_model=UsageSummary)
-async def usage_summary(db: AsyncSession = Depends(get_db)):
-    r = await db.execute(
+async def usage_summary(source: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    stmt = _apply_usage_source_filter(
         select(
             func.count(UsageRecord.id),
+            func.coalesce(func.sum(UsageRecord.input_tokens), 0),
+            func.coalesce(func.sum(UsageRecord.output_tokens), 0),
             func.coalesce(func.sum(UsageRecord.total_tokens), 0),
             func.coalesce(func.avg(UsageRecord.latency_ms), 0.0),
             func.count(UsageRecord.id).filter(UsageRecord.status == "success"),
             func.count(UsageRecord.id).filter(UsageRecord.status == "failed"),
-        )
+        ),
+        source,
     )
-    row = r.one()
+    row = (await db.execute(stmt)).one()
     return UsageSummary(
         total_requests=row[0],
-        total_tokens=row[1],
-        avg_latency_ms=float(row[2]),
-        success_count=row[3],
-        failed_count=row[4],
+        input_tokens=row[1],
+        output_tokens=row[2],
+        total_tokens=row[3],
+        avg_latency_ms=float(row[4]),
+        success_count=row[5],
+        failed_count=row[6],
     )
 
 
@@ -330,14 +394,16 @@ async def health_deps(
         await db.execute(text("SELECT 1"))
         db_status = "ok"
     except Exception as e:
-        db_status = f"error: {e}"
+        logger.warning("health/deps db error: %s", e)
+        db_status = "error: unavailable"
 
     # cost-service check
     try:
         r = await http_client.get(f"{COST_SERVICE_URL}/health", timeout=3.0)
         cost_status = "ok" if r.status_code == 200 else f"http {r.status_code}"
     except Exception as e:
-        cost_status = f"error: {e}"
+        logger.warning("health/deps cost-service error: %s", e)
+        cost_status = "error: unavailable"
 
     return {
         "service": "usage-service",

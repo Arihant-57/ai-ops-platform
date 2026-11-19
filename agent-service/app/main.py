@@ -13,10 +13,12 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from .database import get_db, init_db
-from .models import Agent
+from .database import AsyncSessionLocal, get_db, init_db
+from .models import Agent, Team, TeamMember
 from .schemas import (
     AgentCreate,
     AgentOut,
@@ -25,6 +27,11 @@ from .schemas import (
     DashboardOverview,
     RunRequest,
     RunResponse,
+    TeamCreate,
+    TeamMemberCreate,
+    TeamMemberOut,
+    TeamOut,
+    TeamUpdate,
     UsageInfo,
 )
 
@@ -43,14 +50,23 @@ DASHBOARD_HTML = (Path(__file__).parent / "dashboard.html").read_text(encoding="
 # Shared httpx client
 _http_client: Optional[httpx.AsyncClient] = None
 
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "CORS_ORIGINS",
+        "http://localhost:8001,http://127.0.0.1:8001,http://localhost:8002,http://localhost:8003",
+    ).split(",")
+    if o.strip()
+]
+
 # ── app ───────────────────────────────────────────────────────────────────────
 app = FastAPI(title="agent-service", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Request-ID"],
 )
 
 
@@ -59,6 +75,9 @@ async def log_requests(request: Request, call_next):
     start = time.perf_counter()
     request_id = request.headers.get("x-request-id", "-")
     response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     duration_ms = (time.perf_counter() - start) * 1000
     logger.info(
         "request | request_id=%s method=%s path=%s status=%d duration_ms=%.1f",
@@ -67,11 +86,59 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+SEED_TEAMS = [
+    {"name": "Research", "description": "Literature search and paper synthesis", "daily_token_budget": 100_000},
+    {"name": "Engineering", "description": "Software agents and load test pipelines", "daily_token_budget": 1_000_000},
+    {"name": "Support", "description": "Customer ticket and FAQ automation", "daily_token_budget": 100_000},
+    {"name": "Operations", "description": "Document and meeting summarization", "daily_token_budget": 150_000},
+    {"name": "Data", "description": "Dataset analytics and reporting", "daily_token_budget": 150_000},
+    {"name": "Legal", "description": "Contract review and compliance checks", "daily_token_budget": 100_000},
+    {"name": "default", "description": "Default organizational team", "daily_token_budget": 500_000},
+]
+
+SEED_MEMBERS = {
+    "Research": [("Research Lead", "research@company.local", "admin")],
+    "Engineering": [
+        ("Arihant Jain", "arihant@company.local", "admin"),
+        ("Platform Engineer", "eng@company.local", "developer"),
+    ],
+    "Support": [("Support Ops", "support@company.local", "developer")],
+    "Operations": [("Ops Analyst", "ops@company.local", "developer")],
+    "Data": [("Data Scientist", "data@company.local", "developer")],
+    "Legal": [("Compliance Reviewer", "legal@company.local", "viewer")],
+}
+
+
+async def _ensure_team_exists(db: AsyncSession, team_name: str) -> None:
+    if not team_name:
+        return
+    stmt = pg_insert(Team).values(name=team_name, daily_token_budget=500_000).on_conflict_do_nothing(index_elements=["name"])
+    await db.execute(stmt)
+
+
+async def _seed_teams_and_members(db: AsyncSession) -> None:
+    await db.execute(pg_insert(Team).values(SEED_TEAMS).on_conflict_do_nothing(index_elements=["name"]))
+    agent_teams = (await db.execute(select(Agent.owner_team).distinct())).scalars().all()
+    for tname in agent_teams:
+        await _ensure_team_exists(db, tname)
+    member_count = (await db.execute(select(func.count(TeamMember.id)))).scalar_one()
+    if member_count == 0:
+        teams = {t.name: t.id for t in (await db.execute(select(Team))).scalars().all()}
+        for tname, members in SEED_MEMBERS.items():
+            tid = teams.get(tname)
+            if tid:
+                for mname, email, role in members:
+                    db.add(TeamMember(team_id=tid, name=mname, email=email, role=role))
+    await db.commit()
+
+
 @app.on_event("startup")
 async def startup():
     global _http_client
     _http_client = httpx.AsyncClient(timeout=10.0)
     await init_db()
+    async with AsyncSessionLocal() as session:
+        await _seed_teams_and_members(session)
     logger.info("agent-service startup complete")
 
 
@@ -92,6 +159,7 @@ async def create_agent(body: AgentCreate, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(Agent).where(Agent.name == body.name))
     if existing.scalar_one_or_none():
         raise HTTPException(409, f"Agent '{body.name}' already exists")
+    await _ensure_team_exists(db, body.owner_team)
     agent = Agent(**body.model_dump())
     db.add(agent)
     await db.commit()
@@ -121,7 +189,10 @@ async def update_agent(agent_id: int, body: AgentUpdate, db: AsyncSession = Depe
     agent = result.scalar_one_or_none()
     if not agent:
         raise HTTPException(404, f"Agent {agent_id} not found")
-    for field, value in body.model_dump(exclude_none=True).items():
+    updates = body.model_dump(exclude_none=True)
+    if "owner_team" in updates:
+        await _ensure_team_exists(db, updates["owner_team"])
+    for field, value in updates.items():
         setattr(agent, field, value)
     await db.commit()
     await db.refresh(agent)
@@ -135,6 +206,103 @@ async def delete_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
     if not agent:
         raise HTTPException(404, f"Agent {agent_id} not found")
     await db.delete(agent)
+    await db.commit()
+
+
+# ── /teams CRUD ───────────────────────────────────────────────────────────────
+
+def _serialize_team(team: Team, agent_counts: dict) -> TeamOut:
+    members = sorted(team.members, key=lambda m: m.id)
+    return TeamOut(
+        id=team.id,
+        name=team.name,
+        description=team.description,
+        daily_token_budget=team.daily_token_budget,
+        created_at=team.created_at,
+        members=[TeamMemberOut.model_validate(m) for m in members],
+        member_count=len(members),
+        agent_count=agent_counts.get(team.name, 0),
+    )
+
+
+@app.get("/teams", response_model=List[TeamOut])
+async def list_teams(db: AsyncSession = Depends(get_db)):
+    teams = (await db.execute(select(Team).options(selectinload(Team.members)).order_by(Team.name))).scalars().all()
+    counts_rows = (await db.execute(select(Agent.owner_team, func.count(Agent.id)).group_by(Agent.owner_team))).all()
+    agent_counts = {row[0]: row[1] for row in counts_rows}
+    return [_serialize_team(t, agent_counts) for t in teams]
+
+
+@app.post("/teams", response_model=TeamOut, status_code=201)
+async def create_team(body: TeamCreate, db: AsyncSession = Depends(get_db)):
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(400, "Team name is required")
+    existing = await db.execute(select(Team).where(Team.name == name))
+    if existing.scalar_one_or_none():
+        raise HTTPException(409, f"Team '{name}' already exists")
+    team = Team(name=name, description=body.description, daily_token_budget=body.daily_token_budget)
+    db.add(team)
+    await db.commit()
+    result = await db.execute(select(Team).options(selectinload(Team.members)).where(Team.id == team.id))
+    return _serialize_team(result.scalar_one(), {})
+
+
+@app.put("/teams/{team_id}", response_model=TeamOut)
+async def update_team(team_id: int, body: TeamUpdate, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Team).options(selectinload(Team.members)).where(Team.id == team_id))
+    team = result.scalar_one_or_none()
+    if not team:
+        raise HTTPException(404, f"Team {team_id} not found")
+    old_name = team.name
+    updates = body.model_dump(exclude_none=True)
+    if "name" in updates and updates["name"] != old_name:
+        dup = (await db.execute(select(Team).where(Team.name == updates["name"]))).scalar_one_or_none()
+        if dup:
+            raise HTTPException(409, f"Team '{updates['name']}' already exists")
+    for field, value in updates.items():
+        setattr(team, field, value)
+    if "name" in updates and updates["name"] != old_name:
+        agents_res = (await db.execute(select(Agent).where(Agent.owner_team == old_name))).scalars().all()
+        for ag in agents_res:
+            ag.owner_team = updates["name"]
+    await db.commit()
+    refreshed = (await db.execute(select(Team).options(selectinload(Team.members)).where(Team.id == team_id))).scalar_one()
+    ac = (await db.execute(select(func.count(Agent.id)).where(Agent.owner_team == refreshed.name))).scalar_one()
+    return _serialize_team(refreshed, {refreshed.name: ac})
+
+
+@app.delete("/teams/{team_id}", status_code=204)
+async def delete_team(team_id: int, db: AsyncSession = Depends(get_db)):
+    team = (await db.execute(select(Team).where(Team.id == team_id))).scalar_one_or_none()
+    if not team:
+        raise HTTPException(404, f"Team {team_id} not found")
+    await db.delete(team)
+    await db.commit()
+
+
+@app.post("/teams/{team_id}/members", response_model=TeamMemberOut, status_code=201)
+async def add_team_member(team_id: int, body: TeamMemberCreate, db: AsyncSession = Depends(get_db)):
+    team = (await db.execute(select(Team).where(Team.id == team_id))).scalar_one_or_none()
+    if not team:
+        raise HTTPException(404, f"Team {team_id} not found")
+    if not body.name.strip():
+        raise HTTPException(400, "Member name is required")
+    member = TeamMember(team_id=team_id, name=body.name.strip(), email=body.email, role=body.role)
+    db.add(member)
+    await db.commit()
+    await db.refresh(member)
+    return member
+
+
+@app.delete("/teams/{team_id}/members/{member_id}", status_code=204)
+async def delete_team_member(team_id: int, member_id: int, db: AsyncSession = Depends(get_db)):
+    member = (
+        await db.execute(select(TeamMember).where(TeamMember.id == member_id, TeamMember.team_id == team_id))
+    ).scalar_one_or_none()
+    if not member:
+        raise HTTPException(404, f"Member {member_id} not found in team {team_id}")
+    await db.delete(member)
     await db.commit()
 
 
@@ -157,6 +325,24 @@ async def run_agent(
         raise HTTPException(404, f"Agent {agent_id} not found")
     if agent.status == "INACTIVE":
         raise HTTPException(409, f"Agent '{agent.name}' is INACTIVE")
+
+    # Enforce hard budget pre-flight when configured
+    if getattr(agent, "budget_mode", "soft") == "hard":
+        try:
+            cr = await http_client.get(f"{COST_SERVICE_URL}/analytics/agents", timeout=3.0)
+            if cr.status_code == 200:
+                match = next((x for x in cr.json() if x.get("agent_id") == agent.id), None)
+                tokens_today = (match or {}).get("tokens_today", 0)
+                if tokens_today >= agent.daily_token_budget:
+                    raise HTTPException(
+                        429,
+                        f"Hard daily budget cap reached for '{agent.name}' "
+                        f"({tokens_today:,}/{agent.daily_token_budget:,} tokens today).",
+                    )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("hard-budget check skipped (cost-service unreachable): %s", exc)
 
     # Generate request_id and propagate via header
     request_id = str(uuid.uuid4()).replace("-", "")
@@ -181,6 +367,7 @@ async def run_agent(
                 "prompt": body.prompt or "",
                 "source": body.source,
                 "simulate_failures": body.simulate_failures,
+                "executed_by": body.executed_by,
             },
             headers=headers,
         )
@@ -192,9 +379,13 @@ async def run_agent(
         )
 
         if usage_resp.status_code not in (200, 201):
+            logger.error(
+                "usage-service error status=%d body=%s request_id=%s",
+                usage_resp.status_code, usage_resp.text[:200], request_id,
+            )
             raise HTTPException(
                 502,
-                f"usage-service returned {usage_resp.status_code}: {usage_resp.text[:200]}",
+                f"usage-service returned HTTP {usage_resp.status_code}",
             )
 
         ud = usage_resp.json()
@@ -207,7 +398,7 @@ async def run_agent(
         raise HTTPException(503, "usage-service connection refused — service may be down")
     except Exception as exc:
         logger.error("usage-service call failed: %s (request_id=%s)", exc, request_id)
-        raise HTTPException(502, f"usage-service error: {exc}")
+        raise HTTPException(502, "usage-service unavailable")
 
     total_ms = (time.perf_counter() - t_total_start) * 1000
 
@@ -219,6 +410,9 @@ async def run_agent(
         latency_ms=ud.get("latency_ms", 0),
         status=ud.get("status", "success"),
         error_message=ud.get("error_message"),
+        executed_by=ud.get("executed_by") or body.executed_by,
+        prompt_preview=ud.get("prompt_preview"),
+        response_preview=ud.get("response_preview"),
     )
 
     cost_info = CostInfo(
@@ -246,6 +440,7 @@ async def run_agent(
 
 @app.get("/dashboard/overview")
 async def dashboard_overview(
+    source: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     http_client: httpx.AsyncClient = Depends(get_http_client),
 ):
@@ -253,52 +448,33 @@ async def dashboard_overview(
     agents_result = await db.execute(select(Agent).order_by(Agent.id))
     agents = agents_result.scalars().all()
 
-    # Analytics from cost-service
-    cost_overview = {"total_requests": 0, "total_tokens": 0, "total_cost_usd": "0", "failed_model_calls": 0}
+    params = {"source": source} if source and source != "all" else {}
+    cost_overview = {"total_requests": 0, "input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "total_cost_usd": "0"}
     cost_models = []
     cost_agents = []
     alerts = []
-
-    try:
-        r = await http_client.get(f"{COST_SERVICE_URL}/analytics/overview", timeout=5.0)
-        if r.status_code == 200:
-            cost_overview = r.json()
-    except Exception:
-        pass
-
-    try:
-        r = await http_client.get(f"{COST_SERVICE_URL}/analytics/models", timeout=5.0)
-        if r.status_code == 200:
-            cost_models = r.json()
-    except Exception:
-        pass
-
-    try:
-        r = await http_client.get(f"{COST_SERVICE_URL}/analytics/agents", timeout=5.0)
-        if r.status_code == 200:
-            cost_agents = r.json()
-    except Exception:
-        pass
-
-    try:
-        r = await http_client.get(f"{COST_SERVICE_URL}/alerts?limit=20", timeout=5.0)
-        if r.status_code == 200:
-            alerts = r.json()
-    except Exception:
-        pass
-
-    # Usage summary for failed model calls
     usage_summary = {}
-    try:
-        r = await http_client.get(f"{USAGE_SERVICE_URL}/usage/summary", timeout=5.0)
-        if r.status_code == 200:
-            usage_summary = r.json()
-    except Exception:
-        pass
+
+    async def _get_json(url: str, default, query=None):
+        try:
+            r = await http_client.get(url, params=query, timeout=5.0)
+            if r.status_code == 200:
+                return r.json()
+        except Exception:
+            pass
+        return default
+
+    cost_overview = await _get_json(f"{COST_SERVICE_URL}/analytics/overview", cost_overview, params)
+    cost_models = await _get_json(f"{COST_SERVICE_URL}/analytics/models", [], params)
+    cost_agents = await _get_json(f"{COST_SERVICE_URL}/analytics/agents", [], params)
+    alerts = await _get_json(f"{COST_SERVICE_URL}/alerts?limit=20", [])
+    usage_summary = await _get_json(f"{USAGE_SERVICE_URL}/usage/summary", {}, params)
 
     return {
         "agents": [AgentOut.model_validate(a).model_dump() for a in agents],
         "total_requests": cost_overview.get("total_requests", 0),
+        "input_tokens": cost_overview.get("input_tokens", 0),
+        "output_tokens": cost_overview.get("output_tokens", 0),
         "total_tokens": cost_overview.get("total_tokens", 0),
         "total_cost_usd": str(cost_overview.get("total_cost_usd", "0")),
         "failed_model_calls": usage_summary.get("failed_count", 0),
@@ -331,19 +507,22 @@ async def health_deps(
         await db.execute(text("SELECT 1"))
         db_status = "ok"
     except Exception as e:
-        db_status = f"error: {e}"
+        logger.warning("health/deps db error: %s", e)
+        db_status = "error: unavailable"
 
     try:
         r = await http_client.get(f"{USAGE_SERVICE_URL}/health", timeout=3.0)
         usage_status = "ok" if r.status_code == 200 else f"http {r.status_code}"
     except Exception as e:
-        usage_status = f"error: {e}"
+        logger.warning("health/deps usage-service error: %s", e)
+        usage_status = "error: unavailable"
 
     try:
         r = await http_client.get(f"{COST_SERVICE_URL}/health", timeout=3.0)
         cost_status = "ok" if r.status_code == 200 else f"http {r.status_code}"
     except Exception as e:
-        cost_status = f"error: {e}"
+        logger.warning("health/deps cost-service error: %s", e)
+        cost_status = "error: unavailable"
 
     return {
         "service": "agent-service",

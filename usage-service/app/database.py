@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from .models import Base
@@ -33,6 +34,9 @@ async def init_db(retries: int = 30, delay: float = 1.0) -> None:
         try:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+                await conn.execute(text("ALTER TABLE usage_records ADD COLUMN IF NOT EXISTS executed_by VARCHAR(150)"))
+                await conn.execute(text("ALTER TABLE usage_records ADD COLUMN IF NOT EXISTS prompt_preview TEXT"))
+                await conn.execute(text("ALTER TABLE usage_records ADD COLUMN IF NOT EXISTS response_preview TEXT"))
             logger.info("usage-service: DB tables ready")
             return
         except Exception as exc:

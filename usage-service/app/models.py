@@ -39,6 +39,9 @@ class UsageRecord(Base):
     status = Column(String(10), nullable=False, default="success")   # success | failed
     error_message = Column(Text, nullable=True)
     source = Column(String(20), nullable=False, default="demo")      # seed | demo | loadtest
+    executed_by = Column(String(150), nullable=True)
+    prompt_preview = Column(Text, nullable=True)
+    response_preview = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     model_ref = relationship("Model", back_populates="usage_records")

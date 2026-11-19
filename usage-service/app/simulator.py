@@ -116,3 +116,11 @@ async def call_model(
     if mode == "ollama":
         return await call_model_ollama(client, model, agent_id, prompt, simulate_failures)
     return await call_model_mock(model, agent_id, prompt, simulate_failures)
+
+
+def build_response_preview(agent_name: str, model: str, prompt: str, inp: int, out: int, status: str) -> str:
+    """Build a concise simulated output trace preview when running in mock mode."""
+    if status != "success":
+        return f"[{model}] Execution failed before completion."
+    topic = (prompt or "default health prompt").strip()[:120]
+    return f"[{model} · {agent_name}] Processed task ({topic}) — generated {out} completion tokens from {inp} prompt tokens."

@@ -413,9 +413,9 @@ async def main():
             wall_s = time.perf_counter() - t_wall_start
 
             await monitor.stop()
-            monitor = StatsMonitor()  # reset for next level
 
             level_stats_raw = list(monitor.samples) if hasattr(monitor, 'samples') else []
+            monitor = StatsMonitor()  # reset for next level
             stats = compute_stats(results, wall_s)
             container_stats = aggregate_container_stats(level_stats_raw, CONTAINERS)
 
@@ -517,7 +517,7 @@ async def main():
     dsr_path = RESULTS_DIR / "docker_stats_raw.csv"
     if docker_stats_raw_tagged:
         with open(dsr_path, "w", newline="") as f:
-            w = csv.DictWriter(f, fieldnames=docker_stats_raw_tagged[0].keys())
+            w = csv.DictWriter(f, fieldnames=sorted({k for row in docker_stats_raw_tagged for k in row.keys()}))
             w.writeheader()
             w.writerows(docker_stats_raw_tagged)
         print(f"  docker_stats_raw.csv → {dsr_path}")
@@ -551,3 +551,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+

@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 import pytz
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -40,14 +40,23 @@ logger = logging.getLogger(__name__)
 
 IST = pytz.timezone("Asia/Kolkata")
 
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get(
+        "CORS_ORIGINS",
+        "http://localhost:8001,http://127.0.0.1:8001,http://localhost:8002,http://localhost:8003",
+    ).split(",")
+    if o.strip()
+]
+
 # ── app ───────────────────────────────────────────────────────────────────────
 app = FastAPI(title="cost-service", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Request-ID"],
 )
 
 
@@ -230,7 +239,11 @@ async def calculate_cost(
 # ── /cost/agent/{id} ──────────────────────────────────────────────────────────
 
 @app.get("/cost/agent/{agent_id}", response_model=List[CostOut])
-async def cost_by_agent(agent_id: int, limit: int = 50, db: AsyncSession = Depends(get_db)):
+async def cost_by_agent(
+    agent_id: int,
+    limit: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(Cost)
         .where(Cost.agent_id == agent_id)
@@ -242,51 +255,76 @@ async def cost_by_agent(agent_id: int, limit: int = 50, db: AsyncSession = Depen
 
 # ── /analytics ────────────────────────────────────────────────────────────────
 
+def _apply_source_filter(stmt, source: Optional[str]):
+    """Filter Cost rows by source; 'production' excludes synthetic loadtest runs."""
+    if not source or source == "all":
+        return stmt
+    if source == "production":
+        return stmt.where(Cost.source != "loadtest")
+    return stmt.where(Cost.source == source)
+
+
 @app.get("/analytics/overview", response_model=OverviewAnalytics)
-async def analytics_overview(db: AsyncSession = Depends(get_db)):
-    r = await db.execute(
+async def analytics_overview(source: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    stmt = _apply_source_filter(
         select(
             func.count(Cost.id),
+            func.coalesce(func.sum(Cost.input_tokens), 0),
+            func.coalesce(func.sum(Cost.output_tokens), 0),
             func.coalesce(func.sum(Cost.total_tokens), 0),
             func.coalesce(func.sum(Cost.cost_usd), Decimal("0")),
-        )
+        ),
+        source,
     )
-    row = r.one()
+    row = (await db.execute(stmt)).one()
     return OverviewAnalytics(
         total_requests=row[0],
-        total_tokens=row[1],
-        total_cost_usd=row[2] or Decimal("0"),
+        input_tokens=row[1],
+        output_tokens=row[2],
+        total_tokens=row[3],
+        total_cost_usd=row[4] or Decimal("0"),
         failed_model_calls=0,   # cost-service doesn't know about failures; agent-service fills this
     )
 
 
 @app.get("/analytics/models", response_model=List[ModelAnalytics])
-async def analytics_models(db: AsyncSession = Depends(get_db)):
-    r = await db.execute(
+async def analytics_models(source: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    stmt = _apply_source_filter(
         select(
             Pricing.model,
             func.count(Cost.id),
+            func.coalesce(func.sum(Cost.input_tokens), 0),
+            func.coalesce(func.sum(Cost.output_tokens), 0),
             func.coalesce(func.sum(Cost.total_tokens), 0),
             func.coalesce(func.sum(Cost.cost_usd), Decimal("0")),
         )
-        .join(Pricing, Cost.pricing_id == Pricing.id)
-        .group_by(Pricing.model)
-        .order_by(func.sum(Cost.cost_usd).desc().nullslast())
-    )
+        .join(Pricing, Cost.pricing_id == Pricing.id),
+        source,
+    ).group_by(Pricing.model).order_by(func.sum(Cost.cost_usd).desc().nullslast())
+    r = await db.execute(stmt)
     return [
-        ModelAnalytics(model=row[0], request_count=row[1], total_tokens=row[2], total_cost_usd=row[3] or Decimal("0"))
+        ModelAnalytics(
+            model=row[0],
+            request_count=row[1],
+            input_tokens=row[2],
+            output_tokens=row[3],
+            total_tokens=row[4],
+            total_cost_usd=row[5] or Decimal("0"),
+        )
         for row in r.all()
     ]
 
 
 @app.get("/analytics/agents", response_model=List[AgentAnalytics])
-async def analytics_agents(db: AsyncSession = Depends(get_db)):
+async def analytics_agents(source: Optional[str] = None, db: AsyncSession = Depends(get_db)):
     today = _today_ist()
-    r = await db.execute(
+    stmt = _apply_source_filter(
         select(
             Cost.agent_id,
             Cost.agent_name,
             func.count(Cost.id),
+            func.coalesce(func.sum(Cost.input_tokens), 0),
+            func.coalesce(func.sum(Cost.output_tokens), 0),
             func.coalesce(func.sum(Cost.total_tokens), 0),
             func.coalesce(func.sum(Cost.cost_usd), Decimal("0")),
             func.coalesce(
@@ -294,18 +332,20 @@ async def analytics_agents(db: AsyncSession = Depends(get_db)):
                     func.date(func.timezone("Asia/Kolkata", Cost.created_at)) == today
                 ), 0
             ),
-        )
-        .group_by(Cost.agent_id, Cost.agent_name)
-        .order_by(func.sum(Cost.cost_usd).desc().nullslast())
-    )
+        ),
+        source,
+    ).group_by(Cost.agent_id, Cost.agent_name).order_by(func.sum(Cost.cost_usd).desc().nullslast())
+    r = await db.execute(stmt)
     return [
         AgentAnalytics(
             agent_id=row[0],
             agent_name=row[1],
             request_count=row[2],
-            total_tokens=row[3],
-            total_cost_usd=row[4] or Decimal("0"),
-            tokens_today=row[5],
+            input_tokens=row[3],
+            output_tokens=row[4],
+            total_tokens=row[5],
+            total_cost_usd=row[6] or Decimal("0"),
+            tokens_today=row[7],
         )
         for row in r.all()
     ]
@@ -314,7 +354,10 @@ async def analytics_agents(db: AsyncSession = Depends(get_db)):
 # ── /alerts ───────────────────────────────────────────────────────────────────
 
 @app.get("/alerts", response_model=List[AlertOut])
-async def list_alerts(limit: int = 50, db: AsyncSession = Depends(get_db)):
+async def list_alerts(
+    limit: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(Alert).order_by(Alert.created_at.desc()).limit(limit)
     )
@@ -334,5 +377,6 @@ async def health_deps(db: AsyncSession = Depends(get_db)):
         await db.execute(text("SELECT 1"))
         db_status = "ok"
     except Exception as e:
-        db_status = f"error: {e}"
+        logger.warning("health/deps db error: %s", e)
+        db_status = "error: unavailable"
     return {"service": "cost-service", "database": db_status}

@@ -5,6 +5,7 @@ import asyncio
 import logging
 import os
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from .models import Base
@@ -33,6 +34,9 @@ async def init_db(retries: int = 30, delay: float = 1.0) -> None:
         try:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+                await conn.execute(
+                    text("ALTER TABLE agents ADD COLUMN IF NOT EXISTS budget_mode VARCHAR(10) NOT NULL DEFAULT 'soft'")
+                )
             logger.info("agent-service: DB tables ready")
             return
         except Exception as exc:
